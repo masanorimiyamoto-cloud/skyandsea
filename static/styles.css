@@ -1,0 +1,166 @@
+/* 📌 テーブルデザイン */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+}
+th, td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: center;
+    font-size: 14px;
+}
+th {
+    background: #007bff;
+    color: white;
+    font-weight: bold;
+}/* 📌 通常時（ライトモード）のテーブル行の背景色 */
+tbody tr:nth-child(even) {
+    background: #f8f9fa;
+}
+
+/* 📌 夜モード（ダークモード）のテーブル行の背景色修正 */
+body.dark-mode tbody tr:nth-child(even) {
+    background: #333;  /* ✅ ダークモード時に背景を暗めに */
+}
+
+/* 📌 夜モード（ダークモード）の通常行の文字色 */
+body.dark-mode td {
+    color: #ddd; /* ✅ 文字色を少し明るめに */
+}
+
+/* 📌 夜モード（ダークモード）のヘッダー */
+body.dark-mode th {
+    background: #444; /* ✅ ヘッダーをもう少し明るく */
+    color: white;
+}
+
+/* 📌 夜モード（ダークモード）のボーダー */
+body.dark-mode td, 
+body.dark-mode th {
+    border-color: #555; /* ✅ ボーダーも適切に調整 */
+}
+
+tbody tr:hover {
+    background: #e2e6ea; /* ホバー時の色 */
+}
+/* 📌 ロゴとタイトルを並べる */
+.header {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* ロゴとタイトルの間隔 */
+}
+
+/* 📌 ロゴのサイズ調整 */
+.logo {
+    width: 50px;  /* 適宜調整 */
+    height: auto; /* 比率を維持 */
+}
+
+/* 📌 入力フォームのスタイル */
+form {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* 📌 ラベルのデザイン */
+label {
+    font-weight: bold;
+    display: block;
+    margin-top: 10px;
+    color: #333;
+}
+
+/* 📌 入力フィールドのデザイン */
+input, select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    border: 2px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+/* 📌 フォーカス時の枠線 */
+input:focus, select:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+/* 📌 ボタンのデザイン */
+button {
+    background: #007bff;
+    color: white;
+    font-size: 16px;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    transition: 0.2s ease-in-out;
+    margin-top: 15px;
+}
+
+button:hover {
+    background: #0056b3;
+    transform: scale(1.05);
+}
+
+/* 📌 スマホ向け調整 */
+@media (max-width: 768px) {
+    form {
+        padding: 15px;
+    }
+    input, select {
+        font-size: 14px;
+        padding: 8px;
+    }
+    button {
+        font-size: 14px;
+        padding: 10px;
+    }
+}
+
+
+/* 📌 フォントサイズ調整 */
+h2 {
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 10px;
+}
+@media (max-width: 768px) {
+    th, td {
+        font-size: 12px;
+        padding: 8px;
+    }
+}
+
+/* 📌 コンテナの余白調整 */
+.container {
+    max-width: 95%;
+    margin: auto;
+    padding: 15px;
+}
+
+/* 📌 アニメーション */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.container {
+    animation: fadeIn 0.3s ease-in-out;
+}
