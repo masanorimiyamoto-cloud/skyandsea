@@ -424,15 +424,26 @@ def index():
         session['workday'] = workday
         return redirect(url_for("index"))
     else:
-        # GET リクエストの場合
-        selected_personid = session.get('selected_personid', "")
-        workday = session.get('workday', "")
-        return render_template("index.html",
-                               workprocess_list=workprocess_list,
-                               personid_list=personid_list,
-                               personid_dict=personid_dict,
-                               selected_personid=selected_personid,
-                               workday=workday)
+       # index() 関数の else ブロック内
+    # ...
+
+    # 以前に選択されたPersonIDと作業日をセッションから取得
+     selected_personid = session.get('selected_personid', "")
+     session_workday = session.get('workday') # セッションの値を取得
+
+    # セッションに作業日がなければ、30日前の日付をデフォルトとして使用
+    if session_workday:
+        workday = session_workday # セッションにあればそれを使う
+    else:
+        # セッションになければ、30日前の日付を計算して YYYY-MM-DD 形式にする
+        workday = (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")
+
+    return render_template("index.html",
+                           workprocess_list=workprocess_list,
+                           personid_list=personid_list,
+                           personid_dict=personid_dict,
+                           selected_personid=selected_personid,
+                           workday=workday) # ここで計算されたworkdayを渡す
 
 
     
