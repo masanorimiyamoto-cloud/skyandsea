@@ -211,7 +211,12 @@ def get_selected_month_records():
         return []
 
     try:
-        selected_date = datetime.strptime(selected_workday, "%Y-%m-%d") if selected_workday else date.today()
+        if selected_workday:
+    # 文字列から日付（datetime）をパース
+         selected_date = datetime.strptime(selected_workday, "%Y-%m-%d")
+        else:
+    # 今日ではなく30日前の日付を取得
+         selected_date = date.today() - timedelta(days=30)
         selected_year, selected_month = selected_date.year, selected_date.month
 
         params = {"filterByFormula": f"AND(YEAR({{WorkDay}})={selected_year}, MONTH({{WorkDay}})={selected_month})"}
