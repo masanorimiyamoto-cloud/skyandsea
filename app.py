@@ -320,10 +320,21 @@ def records():
         float(record["WorkOutput"]) for record in records if "分給" in record["WorkProcess"]
     )
     selected_personid = session.get("selected_personid", "未選択")
-    selected_workday = session.get("workday", date.today().strftime("%Y-%m-%d"))
-    
-    selected_date = datetime.strptime(selected_workday, "%Y-%m-%d")
-    display_month = f"{selected_date.year}年{selected_date.month}月"
+    # ★★★ ここから修正 ★★★
+    # 表示月を決定するための基準日を取得
+    # get_selected_month_records で使用したロジックと合わせる
+    selected_workday_from_session = session.get("workday")
+
+    if selected_workday_from_session:
+        # セッションに作業日があればその日を基準にする
+        date_for_display = datetime.strptime(selected_workday_from_session, "%Y-%m-%d")
+    else:
+        # セッションに作業日がなければ、30日前の日付を基準にする
+        date_for_display = date.today() - timedelta(days=30)
+
+    # 基準日から表示月を計算
+    display_month = f"{date_for_display.year}年{date_for_display.month}月"
+    # ★★★ ここまで修正 ★★★
 
     return render_template(
         "records.html",
