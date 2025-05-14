@@ -177,9 +177,12 @@ def send_record_to_destination(dest_url, workcord, workname, bookname, workoutpu
     try:
         response = requests.post(dest_url, headers=HEADERS, json=data, timeout=10)
         response.raise_for_status()
-        return response.status_code, "✅ Airtable にデータを送信しました！"
+        resp_json = response.json()
+        new_id = resp_json.get("id")  # ← 追加
+        return response.status_code, "✅ Airtable にデータを送信しました！", new_id
     except requests.RequestException as e:
-        return None, f"⚠ 送信エラー: {str(e)}"
+        return None, f"⚠ 送信エラー: {str(e)}", None
+
 
 # ✅ 一覧のデータ取得 (指定された年月のデータを取得するように変更)
 def get_selected_month_records(target_year, target_month): # 引数に target_year, target_month を追加
@@ -467,40 +470,43 @@ def index():
         dest_table = f"TablePersonID_{selected_personid}"
         dest_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{dest_table}"
         unitprice = unitprice_dict.get(workprocess, 0)
-        status_code, response_text = send_record_to_destination(
-            dest_url, workcd, workname, bookname, workoutput_val, workprocess, unitprice, workday
-        )
-        flash(response_text, "success" if status_code == 200 else "error")
-        
-        session['selected_personid'] = selected_personid
-        session['workday'] = workday # 最後に送信成功した作業日を保存
-        
-        # 送信成功時は、その作業日が含まれる月のレコードページにリダイレクト
-        if status_code == 200:
-            try:
-                workday_dt = datetime.strptime(workday, "%Y-%m-%d")
-                return redirect(url_for("records", year=workday_dt.year, month=workday_dt.month))
-            except ValueError:
-                return redirect(url_for("records")) # 日付パース失敗時はデフォルトへ
-        else: # 送信失敗時
-             return redirect(url_for("index"))
+      
 
+    status_code, response_text, new_record_id = send_record_to_destination(
+        dest_url, workcd, workname, bookname, workoutput_val, workprocess, unitprice, workday
+    )
+    flash(response_text, "success" if status_code == 200 else "error")
 
-    else: # GET request
-        selected_personid_session = session.get('selected_personid', "")
-        session_workday = session.get('workday')
+    session['selected_personid'] = selected_personid
+    session['workday'] = workday  # 最後に送信成功した作業日を保存
 
-        if session_workday:
-            workday_default = session_workday
-        else:
-            workday_default = (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")
+    if status_code == 200:
+        # 新規レコードID を次の画面に渡す
+        session['new_record_id'] = new_record_id
+        # workday_dtが未定義なので、ここで定義
+        try:
+            workday_dt = datetime.strptime(workday, "%Y-%m-%d")
+        except Exception:
+            workday_dt = date.today()
+        return redirect(url_for("records", year=workday_dt.year, month=workday_dt.month))
+    else:
+        return redirect(url_for("index"))
 
-        return render_template("index.html",
-                               workprocess_list=workprocess_list,
-                               personid_list=personid_list,
-                               personid_dict=personid_dict,
-                               selected_personid=selected_personid_session,
-                               workday=workday_default)
+    # GET request
+    selected_personid_session = session.get('selected_personid', "")
+    session_workday = session.get('workday')
+
+    if session_workday:
+        workday_default = session_workday
+    else:
+        workday_default = (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")
+
+    return render_template("index.html",
+                           workprocess_list=workprocess_list,
+                           personid_list=personid_list,
+                           personid_dict=personid_dict,
+                           selected_personid=selected_personid_session,
+                           workday=workday_default)
 
 
 if __name__ == "__main__":

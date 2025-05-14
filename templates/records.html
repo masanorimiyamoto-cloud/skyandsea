@@ -105,6 +105,11 @@
                 margin-bottom: 10px; /* 各要素の下にマージン */
             }
         }
+         /* 新規追加レコードを目立たせる */
+        .highlight {
+        background-color: #fffaac;
+        transition: background-color 1s ease;
+        }
     </style>
 </head>
 <body>
@@ -152,7 +157,7 @@
                 <tbody>
                     {% if records %}
                         {% for record in records %}
-                            <tr>
+                            <tr {% if record.id == new_record_id %}class="highlight"{% endif %}>
                                 <td>{{ record.WorkDay }}</td>
                                 <td>{{ record.WorkCD }}</td>
                                 <td>{{ record.WorkName }}</td>
