@@ -400,9 +400,28 @@ def records(year=None, month=None):
     unique_workdays = set(r["WorkDay"] for r in records_data)
     workdays_count = len(unique_workdays)
     
-    workoutput_total = sum(
-        float(r["WorkOutput"]) for r in records_data if "分給" in r.get("WorkProcess", "") and r.get("WorkOutput", "0").replace('.', '', 1).isdigit()
-    )
+    # workoutput_total の計算を修正
+    workoutput_total = 0
+    for r_item in records_data: # ループ変数を r から r_item に変更し、より明確に
+        # "分給" を含む WorkProcess のみを対象
+        if "分給" in r_item.get("WorkProcess", ""):
+            work_output_value = r_item.get("WorkOutput", "0") # デフォルト値は文字列 "0"
+            
+            # WorkOutput を安全に文字列に変換し、前後の空白を除去
+            work_output_str = str(work_output_value).strip() 
+
+            # 文字列が空でなく、かつ数値（整数または正の小数）として解釈可能かチェック
+            # replace('.', '', 1) は最初の'.'を削除し、残りが全て数字か確認
+            # これにより "10", "10.5" はOK, ".5" や "10." もOKになる
+            # "" や "abc", "10.5.5" はNG
+            if work_output_str and work_output_str.replace('.', '', 1).isdigit():
+                try:
+                    workoutput_total += float(work_output_str)
+                except ValueError:
+                    # isdigitチェックを通過してもfloat変換に失敗するケースは稀だが念のため
+                    print(f"警告: WorkOutput '{work_output_str}' をfloatに変換できませんでした（isdigitチェック後）。")
+            elif work_output_str: # isdigitチェックでFalseだったが空文字列ではない場合（例: "abc", "-" を含むなど）
+                 print(f"情報: WorkOutput '{work_output_str}' は '分給' の集計対象外の形式です。")
 
 
     first_day_of_current_month = date(year, month, 1)
