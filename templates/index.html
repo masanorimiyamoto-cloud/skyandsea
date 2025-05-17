@@ -149,6 +149,7 @@
   <button type="button" id="viewRecordsButton" style="margin-top: 15px; font-size: 18px;">入力一覧確認</button>
 
   <script>
+    // デバウンス関数はDOMContentLoadedの外に定義しても問題ありません
     function debounce(fn, wait) {
       let timer = null;
       return function(...args) {
@@ -156,23 +157,21 @@
         timer = setTimeout(() => fn.apply(this, args), wait);
       };
     }
-    // Corrected element references using the actual IDs from HTML
-    const workcdInput    = document.getElementById('workcd');
-    const worknameInput  = document.getElementById('worknameInput'); // Corrected ID
-    const booknameInput  = document.getElementById('booknameInput'); // Corrected ID
-    const worknameSelect = document.getElementById('worknameSelect');
-    const suggestionCount= document.getElementById('suggestionCount');
 
+  // DOMContentLoaded イベントが発生したら実行
   document.addEventListener("DOMContentLoaded", function () {
+    // ここで全てのDOM要素への参照を取得します
     const personidSelect = document.getElementById("personid");
     const workcdInput = document.getElementById("workcd");
+    const worknameInput = document.getElementById("worknameInput"); // HTMLのIDに合わせて修正
+    const booknameInput = document.getElementById("booknameInput"); // HTMLのIDに合わせて修正
     const worknameSelect = document.getElementById("worknameSelect");
-    // Remove the reference to fetchWorkNameButton as it doesn't exist in the HTML
-    // const fetchWorkNameButton = document.getElementById("fetchWorkNameButton");
+    const suggestionCount = document.getElementById("suggestionCount");
     const workprocessSelect = document.getElementById("workprocess");
     const workdayInput = document.getElementById("workday");
     const unitpriceInput = document.getElementById("unitprice");
     const submitButton = document.getElementById("submitButton");
+    const viewRecordsButton = document.getElementById("viewRecordsButton"); // 「入力一覧確認」ボタン
 
     // フォーム送信時の処理
     document.querySelector("form").addEventListener("submit", function () {
@@ -193,189 +192,142 @@
         localStorage.setItem("lastPersonID", personidSelect.value);
     });
 
-    let lastSuggestions = [];
+    let lastSuggestions = []; // 最後に取得した候補リストを保持
 
+    // WorkCDに基づいてWorkName候補を取得し、表示を更新する関数
     function fetchAndRender(code) {
       console.log('Searching for:', code); // 検索値確認
+      // バックエンドのAPIを呼び出し
       fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
-
-        .then(r => r.json())
+        .then(r => r.json()) // JSONとしてパース
         .then(json => {
           console.log('API Response:', json); // APIレスポンス確認
-          const list = json.worknames || [];
-          lastSuggestions = list;
+          const list = json.worknames || []; // 候補リストを取得 (無ければ空リスト)
+          lastSuggestions = list; // 候補を保存
 
-          // クリア
-          // Use the corrected IDs for input fields
-          document.getElementById('worknameInput').value = '';
-          document.getElementById('booknameInput').value = '';
-          worknameSelect.innerHTML = '';
-          suggestionCount.style.display = 'none';
+          // 品名入力欄と候補リストをクリア
+          worknameInput.value = '';
+          booknameInput.value = '';
+          worknameSelect.innerHTML = ''; // 既存のoptionを全て削除
+          suggestionCount.style.display = 'none'; // 件数表示を非表示に
 
           if (list.length === 1) {
-            // 1件 → 自動セット
+            // 候補が1件の場合、自動で入力欄にセット
             const item = list[0];
             workcdInput.value   = item.code;
-            document.getElementById('worknameInput').value = item.workname; // Corrected ID
-            document.getElementById('booknameInput').value = item.bookname; // Corrected ID
-          }
-          else if (list.length > 1) {
-            // 複数 → リスト展開＋件数
+            worknameInput.value = item.workname;
+            booknameInput.value = item.bookname;
+            worknameSelect.style.display = 'none'; // リストは非表示のまま
+            suggestionCount.style.display = 'none';
+          } else if (list.length > 1) {
+            // 候補が複数件の場合、リストに表示
             list.forEach(item => {
               const opt = document.createElement('option');
-              // value に code||workname||bookname を保持
+              // value に code||workname||bookname を保持し、選択時に分解できるようにする
               opt.value       = `${item.code}||${item.workname}||${item.bookname}`;
               opt.textContent = `${item.code}: ${item.workname}（${item.bookname}）`;
               worknameSelect.appendChild(opt);
             });
-            worknameSelect.style.display = 'block';
+            worknameSelect.style.display = 'block'; // リストを表示
 
             // 件数表示
             suggestionCount.textContent = `${list.length}件見つかりました。`;
             suggestionCount.style.display = 'block';
           }
-          // 0件は blur で「登録コードがありません。」を出す
+          // 候補が0件の場合は、blurイベントで「登録コードがありません。」を表示する
         })
-        .catch(console.error);
+        .catch(error => {
+            console.error("品名候補取得エラー:", error); // エラーログ出力
+            // エラー時も表示をクリア
+            worknameInput.value = '';
+            booknameInput.value = '';
+            worknameSelect.innerHTML = '';
+            worknameSelect.style.display = 'none';
+            suggestionCount.style.display = 'none';
+            // 必要であればユーザーにエラーを通知するアラートなどを表示
+            // alert("品名候補の取得中にエラーが発生しました。詳細はコンソールを確認してください。");
+        });
     }
 
-    // 入力イベント（3文字以上で部分一致）
-    const debounced = debounce(() => {
+    // WorkCD入力フィールドの 'input' イベントリスナー
+    // ユーザーが文字をタイプするたびに debounced 関数が呼ばれる
+    const debouncedFetch = debounce(() => {
       const c = workcdInput.value.trim();
-      if (c.length >= 3) fetchAndRender(c);
-      else {
+      if (c.length >= 3) {
+        fetchAndRender(c); // 3文字以上で候補取得関数を実行
+      } else {
+        // 3文字未満になったら候補表示をクリア
         lastSuggestions = [];
-        // Use the corrected IDs for input fields
-        document.getElementById('worknameInput').value = '';
-        document.getElementById('booknameInput').value = '';
+        worknameInput.value = '';
+        booknameInput.value = '';
         worknameSelect.style.display = 'none';
         worknameSelect.innerHTML = '';
         suggestionCount.style.display = 'none';
       }
-    }, 300);
-    workcdInput.addEventListener('input', debounced);
+    }, 300); // 300ミリ秒のデバウンス
 
-    // blur で未ヒットメッセージ
+    workcdInput.addEventListener('input', debouncedFetch); // イベントリスナーを設定
+
+    // WorkCD入力フィールドからフォーカスが外れた時の 'blur' イベントリスナー
     workcdInput.addEventListener('blur', () => {
       const c = workcdInput.value.trim();
-      if (c.length < 3) return;
-      if (lastSuggestions.length === 0) {
+      // 3文字以上入力されていて、かつ候補が見つからなかった場合にメッセージを表示
+      if (c.length >= 3 && lastSuggestions.length === 0) {
         worknameSelect.innerHTML = '<option value="">登録コードがありません。</option>';
-        worknameSelect.style.display = 'block';
-      }
+        worknameSelect.style.display = 'block'; // メッセージを表示するためにリストを表示
+        suggestionCount.style.display = 'none'; // 件数表示は非表示
+      } else if (c.length < 3) {
+            // 3文字未満でフォーカスが外れた場合もリストは非表示にする
+            worknameSelect.style.display = 'none';
+            suggestionCount.style.display = 'none';
+        }
     });
 
-    // 選択後は code/workname/bookname を分解して各欄にセット
+    // WorkName候補リストで項目が選択された時の 'change' イベントリスナー
     worknameSelect.addEventListener('change', () => {
-      const [code, name, book] = worknameSelect.value.split('||');
-      workcdInput.value     = code   || '';
-      // Use the corrected IDs for input fields
-      document.getElementById('worknameInput').value   = name   || '';
-      document.getElementById('booknameInput').value   = book   || '';
-      worknameSelect.style.display = 'none';
-      suggestionCount.style.display = 'none';
-      document.getElementById('workprocess').focus();
+      const selectedValue = worknameSelect.value;
+      if (selectedValue) { // 何か項目が選択された場合 (空のoption以外)
+        const [code, name, book] = selectedValue.split('||');
+        workcdInput.value     = code   || '';
+        worknameInput.value   = name   || '';
+        booknameInput.value   = book   || '';
+      } else { // 「登録コードがありません。」などが選択された場合（実際には選択できないが念のため）
+            worknameInput.value = '';
+            booknameInput.value = '';
+        }
+      worknameSelect.style.display = 'none'; // リストを非表示に
+      suggestionCount.style.display = 'none'; // 件数表示を非表示に
+      document.getElementById('workprocess').focus(); // 次の入力フィールドにフォーカスを移動
     });
 
-      // WorkProcess
-      
-      const lastWorkProcess = localStorage.getItem("lastWorkProcess");
-      if (lastWorkProcess && !workprocessSelect.value) { // Flask側でselectedが指定されていない場合
-          workprocessSelect.value = lastWorkProcess;
-      }
-      if (workprocessSelect.value) { // 初期値または復元値があれば単価を取得
-          fetchUnitPrice();
-      }
-      workprocessSelect.addEventListener("change", function () {
-          localStorage.setItem("lastWorkProcess", workprocessSelect.value);
-          fetchUnitPrice();
-      });
-
-      // WorkDay
-      
-      // Flaskから渡されたworkdayがある場合はそれを優先 (input type="date" の value属性で設定済み)
-      // なければlocalStorageの値を使用
-      if (!workdayInput.value) {
-          const lastWorkDay = localStorage.getItem("lastWorkDay");
-          if (lastWorkDay) {
-              workdayInput.value = lastWorkDay;
-          }
-      }
-      workdayInput.addEventListener("change", function () {
-          localStorage.setItem("lastWorkDay", workdayInput.value);
-      });
-
-      // --- イベントリスナー ---
-      // Remove the listener for the non-existent button
-      // fetchWorkNameButton.addEventListener("click", function () {
-      //   fetchWorkNames();
-      // });
-
-
-    // --- 関数定義 ---
-    // The fetchWorkNames function below is replaced by fetchAndRender. Remove or comment out.
-    /*
-    function fetchWorkNames() {
-      const workcd = workcdInput.value.trim();
-      console.log("候補を取得: workcd =", workcd);
-      // fetchWorkNameButton.innerText = "🔍 品名候補を取得中..."; // Button doesn't exist
-      worknameSelect.innerHTML = '<option value="">品名を選択してください。</option>';
-
-      if (workcd === "") {
-        // fetchWorkNameButton.innerText = "🔍 品名候補を取得"; // Button doesn't exist
-        return;
-      }
-
-      fetch(`/get_worknames?workcd=${encodeURIComponent(workcd)}`)
-        .then(response => response.json())
-        .then(data => {
-          console.log("取得結果:", data);
-          if (!data || typeof data.worknames === "undefined") {
-            alert("サーバからのレスポンスが不正です: " + JSON.stringify(data));
-            // fetchWorkNameButton.innerText = "🔍 品名候補を取得"; // Button doesn't exist
-            return;
-          }
-          if (data.error) {
-            alert(data.error);
-            // fetchWorkNameButton.innerText = "🔍 品名候補を取得"; // Button doesn't exist
-            return;
-          }
-
-          const records = data.worknames;
-          if (records.length === 0) {
-            alert("該当する WorkName が見つかりません");
-            // fetchWorkNameButton.innerText = "🔍 品名候補を取得"; // Button doesn't exist
-            return;
-          }
-
-          // fetchWorkNameButton.innerText = records.length + "件見つかりました。"; // Button doesn't exist
-          records.forEach(record => {
-            const option = document.createElement("option");
-            option.value = record.workname + "||" + record.bookname;
-            option.text = record.workname + (record.bookname ? " (" + record.bookname + ")" : "");
-            worknameSelect.appendChild(option);
-          });
-
-          if (records.length === 1) {
-            worknameSelect.value = records[0].workname + "||" + records[0].bookname;
-            workprocessSelect.focus();
-          } else {
-            worknameSelect.focus();
-          }
-        })
-        .catch(error => {
-            console.error("エラー:", error);
-            alert("品名候補の取得中にエラーが発生しました。");
-            // fetchWorkNameButton.innerText = "🔍 品名候補を取得"; // Button doesn't exist
-        });
+    // WorkProcess
+    const lastWorkProcess = localStorage.getItem("lastWorkProcess");
+    if (lastWorkProcess && !workprocessSelect.value) { // Flask側でselectedが指定されていない場合
+        workprocessSelect.value = lastWorkProcess;
     }
-    */
+    if (workprocessSelect.value) { // 初期値または復元値があれば単価を取得
+        fetchUnitPrice();
+    }
+    workprocessSelect.addEventListener("change", function () {
+        localStorage.setItem("lastWorkProcess", workprocessSelect.value);
+        fetchUnitPrice();
+    });
 
+    // WorkDay
+    const lastWorkDay = localStorage.getItem("lastWorkDay");
+    if (!workdayInput.value && lastWorkDay) {
+        workdayInput.value = lastWorkDay;
+    }
+    workdayInput.addEventListener("change", function () {
+        localStorage.setItem("lastWorkDay", workdayInput.value);
+    });
+
+
+    // Unit Price の取得関数 (WorkProcessのchangeイベントで呼び出される)
     function fetchUnitPrice() {
-      // This function seems fine and is called by the workprocess change listener.
-      const workprocess = workprocessSelect.value; // Redeclared, but fine.
+      const workprocess = workprocessSelect.value;
       if (workprocess === "") {
-        unitpriceInput.value = ""; // Redeclared, but fine.
+        unitpriceInput.value = "";
         return;
       }
       fetch(`/get_unitprice?workprocess=${encodeURIComponent(workprocess)}`)
@@ -395,9 +347,7 @@
         });
     }
 
-    // ボタン、PersonIDセレクト、日付入力を取得
-    const viewRecordsButton = document.getElementById("viewRecordsButton"); // Redeclared, but fine.
-
+    // 「入力一覧確認」ボタンのイベントリスナー
     if (viewRecordsButton) {
       viewRecordsButton.addEventListener("click", function() {
         const pid   = personidSelect.value;
@@ -420,29 +370,7 @@
       });
     }
 
-    // The logic below was commented out and related to an older approach or debugging
-    /*
-    // ページロード時の初回 sessionStorage pageLoaded の設定ロジックは、
-    // localStorage の PersonID を不用意にクリアしないようにするため、一旦削除または見直しました。
-    // Flaskから渡される selected_personid を優先し、それが無い場合にlocalStorageの値を使うようにしています。
-    // もし初回アクセス時に localStorage の lastPersonID をクリアしたい明確な理由があれば、
-    // sessionStorage.clear(); のような処理をページの最初に入れることを検討してください。
-    // ただし、現状のロジックではFlaskからの値があればそれが優先されます。
-
-    // フォーム送信失敗で戻ってきた場合に、WorkCDが入力されていれば品名候補を再取得する処理 (任意)
-    if (workcdInput.value.trim() !== "" && worknameSelect.options.length <= 1) { // 初期状態(選択肢が1つ以下)の場合
-        // selected_workname_option があれば、それを復元する処理がHTML側にあるので、
-        // ここで無条件に fetchWorkNames() を呼ぶと、それが上書きされる可能性がある。
-        // Flask側で workname の選択肢自体を渡していないので、
-        // ここで fetchWorkNames を呼んで候補を再表示するのが自然。
-        // ただし、エラーで戻ってきたときに、以前の選択が `selected_workname_option` に入っているはずなので、
-        // その値と候補が一致すればそれを選択状態にしたいが、それは fetchWorkNames 内では難しい。
-        // 現状は、候補を再取得し、もし以前の選択があればユーザーに再選択してもらう形になる。
-        // fetchWorkNames(); // 必要に応じてコメントを外す
-    }
-    */
-
-  });
+  }); // DOMContentLoaded の終わり
   </script>
 </body>
 </html>
