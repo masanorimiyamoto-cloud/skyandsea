@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Airtable BookSKY_NET 215.15</title>
+  <title>Airtable BookSKY_NET 2025.517</title>
   <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
   
   <style>
@@ -33,13 +33,13 @@
       margin-top: 5px;
       border: 1px solid #ccc;
       border-radius: 5px;
-      font-size: 20px;
-      box-sizing: border-box;
+      font-size: 20px; /* フォーム要素のフォントサイズを大きくする */
+      box-sizing: border-box; /* paddingを含めてwidth 100%にする */
     }
     button {
       background-color: #007bff;
       color: white;
-      font-size: 18px;
+      font-size: 18px; /* ボタンのフォントサイズ */
       border: none;
       cursor: pointer;
       margin-top: 15px;
@@ -48,7 +48,7 @@
       background-color: #0056b3;
     }
     #submitButton {
-      margin-top: 30px;
+    margin-top: 30px; /* 送信ボタンの上部の余白を増やして間隔を広げる */
     }
     .message {
       padding: 10px;
@@ -66,45 +66,24 @@
       color: #721c24;
       border: 1px solid #f5c6cb;
     }
+    /* ロゴとタイトルのためのスタイル */
     .header {
-      text-align: center;
-      margin-bottom: 20px;
+        text-align: center; /* 中央揃え */
+        margin-bottom: 20px; /* 下のマージン */
     }
     .logo {
-      max-width: 100px;
-      height: auto;
-      margin-bottom: 10px;
-    }
-    #worknameSelect {
-      font-size: 18px;
-      max-height: 200px;
-      overflow-y: auto;
-      border: 2px solid #007bff;
-      border-radius: 5px;
-      width: 100%;
-    }
-    #worknameSelect option {
-      padding: 8px;
-      border-bottom: 1px solid #ddd;
-    }
-    #worknameSelect option:last-child {
-      border-bottom: none;
-    }
-    #suggestionCount {
-      display: none;
-      margin-top: 5px;
-      font-size: 16px;
-      color: #666;
+        max-width: 100px; /* ロゴの最大幅 */
+        height: auto; /* 高さを自動調整 */
+        margin-bottom: 10px; /* ロゴとタイトルの間 */
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="BookSKY Logo" class="logo">
-      <h2>BookSKY_NET 2025.5.17</h2>
-    </div>
-
+        <div class="header">
+         <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="BookSKY Logo" class="logo">
+         <h2>BookSKY_NET 2025.5.17</h2>
+        </div>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div id="flash-message">
@@ -127,17 +106,24 @@
               </option>
           {% endfor %}
       </select>
-
-      <label for="workcd">🔍 作業コード:</label>
-      <input type="text" id="workcd" name="workcd" placeholder="3桁以上入力" required>
-
-      <label for="worknameInput">📚 品名:</label>
-      <input type="text" id="worknameInput" name="workname" readonly placeholder="自動で表示されます">
+  
+      <input type="text" id="workcd" name="workcd" …>
+      <input type="text" id="worknameInput" name="workname" readonly placeholder="品名が自動で入ります">
       <input type="hidden" id="booknameInput" name="bookname">
 
-      <select id="worknameSelect" name="workname" size="5"></select>
-      <div id="suggestionCount"></div>
+      <!-- size を指定して「リストボックス風」に常時展開 -->
+     <select id="worknameSelect" 
+        name="workname" 
+        size="5"
+        style="display:none; width:100%; margin-top:5px; font-size:18px;">
+</select>
 
+<!-- 件数表示用の要素追加 -->
+<div id="suggestionCount" 
+     style="display:none; margin-top:5px; font-size:16px; color:#666;">
+</div>
+
+     
       <label for="workprocess">🛠 行程名:</label>
       <select id="workprocess" name="workprocess" required>
           <option value="">行程名を選択してください</option>
@@ -145,136 +131,160 @@
               <option value="{{ item }}" {% if item == workprocess %}selected{% endif %}>{{ item }}</option>
           {% endfor %}
       </select>
-
+  
       <label for="unitprice">💰 単価:</label>
-      <input type="text" id="unitprice" name="unitprice" readonly>
-
+      <input type="text" id="unitprice" name="unitprice" readonly value="{{ unitprice if unitprice is defined else '' }}">
+  
       <label for="workoutput">📦 数量（個、分）:</label>
-      <input type="text" id="workoutput" name="workoutput" required>
-
+      <input type="text" id="workoutput" name="workoutput" value="{{ workoutput if workoutput is defined else '' }}">
+  
       <label for="workday">📅 作業日:</label>
-      <input type="date" id="workday" name="workday" required>
-
+      <input type="date" id="workday" name="workday" value="{{ workday if workday is defined else '' }}" required>
+  
       <button type="submit" id="submitButton">送信</button>
     </form>
+  
   </div>
   <button type="button" id="viewRecordsButton" style="margin-top: 15px; font-size: 18px;">入力一覧確認</button>
 
   <script>
-    function debounce(fn, wait) {
-      let timer = null;
-      return function(...args) {
-        clearTimeout(timer);
-        timer = setTimeout(() => fn.apply(this, args), wait);
-      };
-    }
+    // デバウンス関数はDOMContentLoadedの外に定義しても問題ありません
+    function debounce(fn, wait) {
+      let timer = null;
+      return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), wait);
+      };
+    }
 
-    document.addEventListener('DOMContentLoaded', function() {
-      const workcdInput = document.getElementById('workcd');
-      const worknameInput = document.getElementById('worknameInput');
-      const booknameInput = document.getElementById('booknameInput');
-      const worknameSelect = document.getElementById('worknameSelect');
-      const suggestionCount = document.getElementById('suggestionCount');
-      const workprocessSelect = document.getElementById('workprocess');
-      const unitpriceInput = document.getElementById('unitprice');
-      const workdayInput = document.getElementById('workday');
-      const viewRecordsButton = document.getElementById('viewRecordsButton');
+  // DOMContentLoaded イベントが発生したら実行
+  document.addEventListener('DOMContentLoaded', function() {
+      const workcdInput    = document.getElementById('workcd');
+      const worknameInput  = document.getElementById('worknameInput');
+      const booknameInput  = document.getElementById('booknameInput');
+      const datalist       = document.getElementById('worknameOptions');
+      let lastSuggestions  = [];
 
-      function updateSuggestions(suggestions) {
-        worknameSelect.innerHTML = '';
-        if (suggestions.length === 0) {
-          worknameSelect.style.display = 'none';
-          suggestionCount.style.display = 'none';
-          return;
-        }
-
-        suggestions.forEach(it => {
-          const opt = document.createElement('option');
-          opt.value = it.workname;
-          opt.textContent = `${it.code}: ${it.workname}`;
-          opt.dataset.code = it.code;
-          opt.dataset.bookname = it.bookname;
-          worknameSelect.appendChild(opt);
-        });
-
-        suggestionCount.textContent = `${suggestions.length}件の候補が見つかりました`;
-        suggestionCount.style.display = 'block';
-        worknameSelect.style.display = 'block';
-        worknameSelect.size = Math.min(suggestions.length, 5);
-      }
-
-      worknameSelect.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        if (selectedOption) {
-          workcdInput.value = selectedOption.dataset.code;
-          worknameInput.value = selectedOption.value;
-          booknameInput.value = selectedOption.dataset.bookname;
-          worknameSelect.style.display = 'none';
-          suggestionCount.style.display = 'none';
-        }
-      });
-
-      const fetchAndFill = debounce(function() {
-        const code = workcdInput.value.trim();
-        if (code.length < 3) {
-          worknameSelect.style.display = 'none';
-          suggestionCount.style.display = 'none';
-          return;
-        }
-
+      // 候補取得＆datalist更新
+      function fetchAndFill(code) {
         fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
           .then(r => r.json())
           .then(json => {
-            const suggestions = json.worknames || [];
-            if (suggestions.length === 1) {
-              const it = suggestions[0];
-              workcdInput.value = it.code;
+            lastSuggestions = json.worknames || [];
+            datalist.innerHTML = '';  // 既存をクリア
+            if (lastSuggestions.length === 1) {
+              const it = lastSuggestions[0];
+              workcdInput.value   = it.code;
               worknameInput.value = it.workname;
               booknameInput.value = it.bookname;
-              worknameSelect.style.display = 'none';
-              suggestionCount.style.display = 'none';
             } else {
-              updateSuggestions(suggestions);
+              lastSuggestions.forEach(it => {
+                const opt = document.createElement('option');
+                opt.value = `${it.code}: ${it.workname}`;
+                opt.dataset.code = it.code;
+                opt.dataset.bookname = it.bookname;
+                datalist.appendChild(opt);
+              });
             }
           })
           .catch(console.error);
-      }, 300);
+      }
 
-      workcdInput.addEventListener('input', fetchAndFill);
-
-      // 単価取得処理
-      workprocessSelect.addEventListener('change', function() {
-        fetch(`/get_unitprice?workprocess=${encodeURIComponent(this.value)}`)
-          .then(response => response.json())
-          .then(data => unitpriceInput.value = data.unitprice || '')
-          .catch(console.error);
-      });
-
-      // 入力一覧確認
-      viewRecordsButton.addEventListener('click', function() {
-        const pid = document.getElementById('personid').value;
-        const date = workdayInput.value;
-        if (!pid || !date) {
-          alert('PersonIDと作業日を選択してください');
-          return;
+      // input イベントで 3文字以上なら fetch
+      const debounced = debounce(() => {
+        const c = workcdInput.value.trim();
+        if (c.length >= 3) fetchAndFill(c);
+        else {
+          lastSuggestions = [];
+          datalist.innerHTML = '';
+          worknameInput.value = '';
+          booknameInput.value = '';
         }
-        const [year, month] = date.split('-');
-        window.location.href = `/records/${year}/${month}?personid=${pid}`;
+      }, 300);
+      workcdInput.addEventListener('input', debounced);
+
+      // datalist から選択後の補完
+      worknameInput.addEventListener('input', () => {
+        const val = worknameInput.value;
+        const opt = Array.from(datalist.options)
+                         .find(o => o.value === val);
+        if (opt) {
+          workcdInput.value   = opt.dataset.code;
+          booknameInput.value = opt.dataset.bookname;
+        }
       });
 
-      // ローカルストレージから前回値を復元
-      const lastWorkProcess = localStorage.getItem('lastWorkProcess');
-      if (lastWorkProcess) workprocessSelect.value = lastWorkProcess;
-      workprocessSelect.addEventListener('change', () => {
-        localStorage.setItem('lastWorkProcess', workprocessSelect.value);
-      });
+    // WorkProcess
+    const lastWorkProcess = localStorage.getItem("lastWorkProcess");
+    if (lastWorkProcess && !workprocessSelect.value) { // Flask側でselectedが指定されていない場合
+        workprocessSelect.value = lastWorkProcess;
+    }
+    if (workprocessSelect.value) { // 初期値または復元値があれば単価を取得
+        fetchUnitPrice();
+    }
+    workprocessSelect.addEventListener("change", function () {
+        localStorage.setItem("lastWorkProcess", workprocessSelect.value);
+        fetchUnitPrice();
+    });
 
-      const lastWorkDay = localStorage.getItem('lastWorkDay');
-      if (lastWorkDay) workdayInput.value = lastWorkDay;
-      workdayInput.addEventListener('change', () => {
-        localStorage.setItem('lastWorkDay', workdayInput.value);
-      });
-    });
-  </script>
+    // WorkDay
+    const lastWorkDay = localStorage.getItem("lastWorkDay");
+    if (!workdayInput.value && lastWorkDay) {
+        workdayInput.value = lastWorkDay;
+    }
+    workdayInput.addEventListener("change", function () {
+        localStorage.setItem("lastWorkDay", workdayInput.value);
+    });
+
+
+    // Unit Price の取得関数 (WorkProcessのchangeイベントで呼び出される)
+    function fetchUnitPrice() {
+      const workprocess = workprocessSelect.value;
+      if (workprocess === "") {
+        unitpriceInput.value = "";
+        return;
+      }
+      fetch(`/get_unitprice?workprocess=${encodeURIComponent(workprocess)}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            unitpriceInput.value = "";
+            // alert(data.error); // 必要に応じてエラー表示
+          } else {
+            unitpriceInput.value = data.unitprice;
+          }
+        })
+        .catch(error => {
+            console.error("単価取得エラー:", error);
+            unitpriceInput.value = "";
+            // alert("単価の取得中にエラーが発生しました。");
+        });
+    }
+
+    // 「入力一覧確認」ボタンのイベントリスナー
+    if (viewRecordsButton) {
+      viewRecordsButton.addEventListener("click", function() {
+        const pid   = personidSelect.value;
+        const date  = workdayInput.value;  //YYYY-MM-DD形式
+
+        // PersonID 未選択チェック
+        if (!pid) {
+          alert("PersonIDを選択してください。");
+          return;
+        }
+        // 日付未選択チェック
+        if (!date) {
+          alert("作業日を選択してください。");
+          return;
+        }
+
+        // 年／月を取り出してリダイレクト
+        const [year, month] = date.split("-");
+        location.href = `/records/${year}/${month}?personid=${encodeURIComponent(pid)}`;
+      });
+    }
+
+  }); // DOMContentLoaded の終わり
+  </script>
 </body>
 </html>
