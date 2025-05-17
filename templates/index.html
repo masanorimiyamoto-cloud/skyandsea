@@ -189,13 +189,25 @@
         localStorage.setItem("lastPersonID", personidSelect.value);
     });
         
-      const worknameInput    = document.getElementById('worknameInput');
-      const booknameInput    = document.getElementById('booknameInput');
+     
+      // ——— デバウンス関数 ———
+      function debounce(fn, wait) {
+        let timer = null;
+        return function(...args) {
+          clearTimeout(timer);
+          timer = setTimeout(() => fn.apply(this, args), wait);
+        };
+      }
+
+      // ——— 要素取得 ———
+      
+      const worknameInput  = document.getElementById('worknameInput');
+      const booknameInput  = document.getElementById('booknameInput');
       
 
-      // 候補を取ってきて自動振り分け
+      // ——— 候補取得 & 振り分け関数 ———
       function loadWorknames(code) {
-        // 事前クリア
+        // クリア
         worknameInput.value = '';
         booknameInput.value = '';
         worknameSelect.style.display = 'none';
@@ -208,43 +220,48 @@
           .then(json => {
             const list = json.worknames || [];
             if (list.length === 1) {
-              // 自動で埋める
-              const { workname, bookname } = list[0];
-              worknameInput.value = workname;
-              booknameInput.value = bookname;
+              // 1件なら自動セット
+              worknameInput.value = list[0].workname;
+              booknameInput.value = list[0].bookname;
             }
             else if (list.length > 1) {
-              // セレクトを表示して選択させる
+              // 複数件ならセレクト表示
               list.forEach(item => {
                 const opt = document.createElement('option');
-                opt.value = `${item.workname}||${item.bookname}`;
+                opt.value       = `${item.workname}||${item.bookname}`;
                 opt.textContent = `${item.workname}（${item.bookname}）`;
                 worknameSelect.appendChild(opt);
               });
               worknameSelect.style.display = 'inline-block';
             }
-            // 候補なしの場合はそのまま空欄
           })
           .catch(err => console.error('品名候補取得エラー:', err));
       }
 
-      // 品番欄でフォーカスアウト時に自動取得
-      workcdInput.addEventListener('blur', () => {
-        loadWorknames(workcdInput.value);
-      });
-
-      // セレクトで選んだとき、テキスト欄に反映
-      worknameSelect.addEventListener('change', () => {
-        const val = worknameSelect.value;
-        if (val) {
-          const [name, book] = val.split('||');
-          worknameInput.value = name;
-          booknameInput.value = book;
+      // ——— デバウンス付きで input イベントに登録 ———
+      const debouncedLoad = debounce(() => {
+        const code = workcdInput.value.trim();
+        if (code.length >= 2) {
+          loadWorknames(code);
         } else {
+          // 2文字未満なら候補クリア
           worknameInput.value = '';
           booknameInput.value = '';
+          worknameSelect.style.display = 'none';
+          worknameSelect.innerHTML = '<option value="">— 品名を選択してください —</option>';
         }
+      }, 300);
+
+      workcdInput.addEventListener('input', debouncedLoad);
+
+      // ——— 既存の change イベントはそのまま ———
+      worknameSelect.addEventListener('change', () => {
+        const [name, book] = worknameSelect.value.split('||');
+        worknameInput.value = name   || '';
+        booknameInput.value = book   || '';
       });
+    
+
     // WorkProcess
     const lastWorkProcess = localStorage.getItem("lastWorkProcess");
     if (lastWorkProcess && !workprocessSelect.value) { // Flask側でselectedが指定されていない場合
