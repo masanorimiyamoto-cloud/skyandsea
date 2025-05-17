@@ -6,200 +6,207 @@
     <title>{{ personid_dict.get(personid|int, personid + "番") }} さんの {{ display_month }} の一覧</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
     <style>
-        /* 基本レイアウト */
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            text-align: center;
-            padding: 10px;
-            margin: 0;
-        }
-                .container {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;       /* ビューポートの高さに合わせる */
-        padding: 10px;
-        box-sizing: border-box;
-        }
+  /* 基本レイアウト */
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    text-align: center;
+    padding: 10px;
+    margin: 0;
+  }
 
-        /* 修正後のスタイル */
-        .container {
-            max-width: 100%;
-            margin: auto;
-            padding: 10px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-            text-align: left;
-            height: 100vh; 
-            display: flex;
-            flex-direction: column;
-            /* overflow: hidden; この行を削除 */
-        }
+  .container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 10px;
+    box-sizing: border-box;
+    max-width: 100%;
+    margin: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    text-align: left;
+    overflow: hidden;    /* コンテナ外へのあふれを隠す */
+  }
 
-        /* タイトル固定用 */
-        h2 {
-            position: sticky;
-            top: 0;
-            background: white;
-            z-index: 3;
-            padding: 10px 0;
-            margin: 0;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 0;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-            font-size: 16px; /* テーブルの基本フォントサイズ */
-        }
-        /* thead の th を固定 */
-        .table-container table thead th {
-            position: sticky;
-            top: 0;
-            background-color: #007bff;
-            color: white;
-            z-index: 2;
-        }
-        .icon-button {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 20px;
-            margin: 0 5px;
-            padding: 5px;
-            vertical-align: middle;
-        }
-        .icon-button:hover {
-            opacity: 0.7;
-        }
+  /* タイトル固定 */
+  h2 {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 3;
+    padding: 10px 0;
+    margin: 0;
+  }
 
-        /* ナビゲーションコントロール固定 */
-        .navigation-controls {
-            position: sticky;
-            top: 60px; /* h2の高さ分下げる */
-            background: white;
-            z-index: 1;
-            padding: 10px 0;
-        }
-        .nav-button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 5px;
-            text-decoration: none;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 5px;
-            white-space: nowrap;
-        }
-        .nav-button:hover {
-            background-color: #0056b3;
-        }
-        .month-display {
-            font-size: 1.2em;
-            font-weight: bold;
-            margin: 5px 10px;
-            white-space: nowrap;
-            flex-grow: 1; /* 中央のスペースを埋めるように */
-            text-align: center; /* 月表示を中央に */
-        }
+  /* ナビゲーションコントロール */
+  .navigation-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+  }
+  .nav-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 5px;
+    white-space: nowrap;
+  }
+  .nav-button:hover {
+    background-color: #0056b3;
+  }
+  .month-display {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin: 5px 10px;
+    white-space: nowrap;
+    flex-grow: 1;
+    text-align: center;
+  }
 
-        /* アクションボタンコンテナ（入力画面に戻るなど） */
-        .action-buttons-container {
-            display: flex;
-            justify-content: center; /* ボタンを中央揃え */
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        .action-button { /* .nav-button と共通化しても良い */
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 5px;
-            text-decoration: none;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 5px;
-        }
-        .action-button:hover {
-            background-color: #0056b3;
-        }
+  /* アクションボタン */
+  .action-buttons-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+  }
+  .action-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 5px;
+  }
+  .action-button:hover {
+    background-color: #0056b3;
+  }
 
-        /* Flashメッセージのスタイル */
-        .flash-message-item {
-            padding: 10px;
-            margin-bottom: 10px; /* 各メッセージ間のマージン */
-            border-radius: 5px;
-            text-align: center;
-            border: 1px solid transparent;
-        }
-        .flash-message-item.success {
-            background-color: #d4edda; color: #155724; border-color: #c3e6cb;
-        }
-        .flash-message-item.error {
-            background-color: #f8d7da; color: #721c24; border-color: #f5c6cb;
-        }
-        .flash-message-item.info { /* info カテゴリ用 */
-            background-color: #cce5ff; color: #004085; border-color: #b8daff;
-        }
-        .flash-message-item.warning { /* warning カテゴリ用 */
-            background-color: #fff3cd; color: #856404; border-color: #ffeeba;
-        }
+  /* テーブル部分だけスクロール */
+  .table-container {
+    flex: 1 1 auto;      /* 残りスペースを占有 */
+    overflow-y: auto;    /* 縦スクロール */
+    overflow-x: auto;    /* 横スクロール */
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0;       /* sticky との兼ね合いで余白をなくす */
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    font-size: 16px;
+  }
+  .table-container table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #007bff;
+    color: white;
+    z-index: 2;
+  }
 
+  /* アイコンボタン */
+  .icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    margin: 0 5px;
+    padding: 5px;
+    vertical-align: middle;
+  }
+  .icon-button:hover {
+    opacity: 0.7;
+  }
 
-        /* スマホ向けスタイル */
-        @media (max-width: 768px) {
-            th, td {
-                padding: 6px;
-                font-size: 14px; /* スマホではテーブルフォントを少し小さく */
-            }
-            .icon-button {
-                font-size: 18px;
-            }
-            .nav-button, .action-button {
-                font-size: 14px; /* スマホではボタンフォントを少し小さく */
-                padding: 7px 10px; /* パディングも少し調整 */
-            }
-            .month-display {
-                font-size: 1.1em; /* 月表示も少し小さく */
-                margin: 5px; /* マージン調整 */
-            }
-            .navigation-controls {
-                justify-content: center; /* スマホでは全体を中央揃え */
-            }
-            /* .navigation-controls > * の margin-bottom は削除し、各要素のmarginで調整 */
-        }
-        @media (max-width: 480px) { /* さらに狭い画面用の調整 */
-            .navigation-controls {
-                flex-direction: column; /* 本当に狭い場合は縦並びに戻すことも検討 */
-                align-items: center;
-            }
-            .navigation-controls > * {
-                margin-bottom: 8px;
-            }
-            .month-display {
-                order: -1; /* 月表示を一番上に持ってくる場合 (縦並びの時) */
-                margin-bottom: 8px;
-            }
-            .nav-button {
-                width: 80%; /* ボタン幅を広げる */
-                text-align: center;
-            }
-        }
+  /* Flash メッセージ */
+  .flash-message-item {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    text-align: center;
+    border: 1px solid transparent;
+  }
+  .flash-message-item.success {
+    background-color: #d4edda;
+    color: #155724;
+    border-color: #c3e6cb;
+  }
+  .flash-message-item.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-color: #f5c6cb;
+  }
+  .flash-message-item.info {
+    background-color: #cce5ff;
+    color: #004085;
+    border-color: #b8daff;
+  }
+  .flash-message-item.warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border-color: #ffeeba;
+  }
 
-        /* 新規追加レコードを目立たせる */
-        .highlight {
-            background-color: #fffaac !important; /* !important で他のスタイルを上書き */
-            transition: background-color 2s ease-out; /* トランジションを長く */
-        }
-    </style>
+  /* スマホ向け調整 */
+  @media (max-width: 768px) {
+    th, td {
+      padding: 6px;
+      font-size: 14px;
+    }
+    .icon-button {
+      font-size: 18px;
+    }
+    .nav-button, .action-button {
+      font-size: 14px;
+      padding: 7px 10px;
+    }
+    .month-display {
+      font-size: 1.1em;
+      margin: 5px;
+    }
+    .navigation-controls {
+      justify-content: center;
+    }
+  }
+  @media (max-width: 480px) {
+    .navigation-controls {
+      flex-direction: column;
+      align-items: center;
+    }
+    .navigation-controls > * {
+      margin-bottom: 8px;
+    }
+    .month-display {
+      order: -1;
+      margin-bottom: 8px;
+    }
+    .nav-button {
+      width: 80%;
+      text-align: center;
+    }
+  }
+
+  /* 新規・編集ハイライト */
+  .highlight {
+    background-color: #fffaac !important;
+    transition: background-color 2s ease-out;
+  }
+</style>
+
 </head>
 <body>
     <div class="container">
