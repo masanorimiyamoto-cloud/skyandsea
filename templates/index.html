@@ -112,11 +112,17 @@
       <input type="hidden" id="booknameInput" name="bookname">
 
       <!-- size を指定して「リストボックス風」に常時展開 -->
-      <select id="worknameSelect"
-              name="workname"
-              size="5"
-              style="display:none; width:100%; margin-top:5px;">
-      </select>
+      <!-- 既存の select の下あたりに追加 -->
+    <select id="worknameSelect"
+            name="workname"
+            size="5"
+            style="display:none; width:100%; margin-top:5px;">
+    </select>
+
+    <!-- 件数表示用 -->
+    <div id="suggestionCount"
+        style="display:none; margin-top:5px; font-size:0.9em; color:#555;">
+    </div>
 
     <button type="button" id="fetchWorkNameButton">🔍 品名候補を取得</button>    
       <label for="workprocess">🛠 行程名:</label>
@@ -174,129 +180,120 @@
         
           
 
-      // ——— 要素取得 ———
-      
-      const worknameInput  = document.getElementById('worknameInput');
-      const booknameInput  = document.getElementById('booknameInput');
-      
+       
+    const worknameInput    = document.getElementById('worknameInput');
+    const booknameInput    = document.getElementById('booknameInput');
+    
+    const suggestionCount  = document.getElementById('suggestionCount');
 
-      
-          /// デバウンス関数
-      function debounce(fn, wait) {
-        let timer = null;
-        return function(...args) {
-          clearTimeout(timer);
-          timer = setTimeout(() => fn.apply(this, args), wait);
-        };
-      }
+    let lastSuggestions = [];
 
+    function fetchAndRender(code) {
+      fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
+        .then(r => r.json())
+        .then(json => {
+          const list = json.worknames || [];
+          lastSuggestions = list;
 
-
-      // 最新取得リストを保持
-      let lastSuggestions = [];
-
-      // 候補取得＆振り分け
-      function fetchWorknames(code) {
-        fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
-          .then(res => res.json())
-          .then(json => {
-            const list = json.worknames || [];
-            lastSuggestions = list;
-
-            // いったんクリア
-            worknameInput.value = '';
-            booknameInput.value = '';
-            worknameSelect.innerHTML = '';
-            worknameSelect.style.display = 'none';
-
-            if (list.length === 1) {
-              // １件→自動セット
-              worknameInput.value = list[0].workname;
-              booknameInput.value = list[0].bookname;
-            }
-            else if (list.length > 1) {
-              // 複数→最初からリストを埋めて表示
-              list.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value       = `${item.workname}||${item.bookname}`;
-                opt.textContent = `${item.workname}（${item.bookname}）`;
-                worknameSelect.appendChild(opt);
-              });
-              worknameSelect.style.display = 'block';
-            }
-            // 0件は何もしない → blur で「登録コードがありません」を出す
-          })
-          .catch(err => console.error('品名候補取得エラー:', err));
-      }
-
-      // input イベント（3文字以上で部分一致フェッチ）
-      const debouncedFetch = debounce(() => {
-        const code = workcdInput.value.trim();
-        if (code.length >= 3) {
-          fetchWorknames(code);
-        } else {
-          // 3文字未満ならクリア
-          lastSuggestions = [];
+          // クリア
           worknameInput.value = '';
           booknameInput.value = '';
-          worknameSelect.style.display = 'none';
           worknameSelect.innerHTML = '';
-        }
-      }, 300);
-      workcdInput.addEventListener('input', debouncedFetch);
+          suggestionCount.style.display = 'none';
+          suggestionCount.textContent = '';
 
-      // blur で 0件ヒットならメッセージを表示
-      workcdInput.addEventListener('blur', () => {
-        if (workcdInput.value.trim().length < 3) return;
-        if (lastSuggestions.length === 0) {
-          worknameSelect.innerHTML =
-            '<option value="">登録コードがありません。</option>';
-          worknameSelect.style.display = 'block';
-        }
-      });
+          if (list.length === 1) {
+            // 一件ヒット → 自動セット
+            worknameInput.value = list[0].workname;
+            booknameInput.value = list[0].bookname;
+          }
+          else if (list.length > 1) {
+            // 複数ヒット → リストを展開 & 件数表示
+            list.forEach(item => {
+              const opt = document.createElement('option');
+              // 先頭に workcd を付与
+              opt.value       = `${item.workname}||${item.bookname}`;
+              opt.textContent = `${code}: ${item.workname}（${item.bookname}）`;
+              worknameSelect.appendChild(opt);
+            });
+            worknameSelect.style.display = 'block';
 
-      // 選択後はテキスト欄に反映&リストを隠す
-      worknameSelect.addEventListener('change', () => {
-        const [name, book] = worknameSelect.value.split('||');
-        worknameInput.value = name   || '';
-        booknameInput.value = book   || '';
+            // 件数表示
+            suggestionCount.textContent = `${list.length}件見つかりました。`;
+            suggestionCount.style.display = 'block';
+          }
+          // hit=0 は blur 停止時に表示
+        })
+        .catch(console.error);
+    }
+
+    const debounced = debounce(() => {
+      const c = workcdInput.value.trim();
+      if (c.length >= 3) {
+        fetchAndRender(c);
+      } else {
+        // 3文字未満ならクリア
+        lastSuggestions = [];
+        worknameInput.value = '';
+        booknameInput.value = '';
         worknameSelect.style.display = 'none';
-        // 次フィールドへフォーカス
-        document.getElementById('workprocess').focus();
+        worknameSelect.innerHTML = '';
+        suggestionCount.style.display = 'none';
+        suggestionCount.textContent = '';
+      }
+    }, 300);
+    workcdInput.addEventListener('input', debounced);
+
+    workcdInput.addEventListener('blur', () => {
+      const c = workcdInput.value.trim();
+      if (c.length < 3) return;
+      if (lastSuggestions.length === 0) {
+        worknameSelect.innerHTML = '<option value="">登録コードがありません。</option>';
+        worknameSelect.style.display = 'block';
+      }
+    });
+
+    worknameSelect.addEventListener('change', () => {
+      const [name, book] = worknameSelect.value.split('||');
+      worknameInput.value   = name   || '';
+      booknameInput.value   = book   || '';
+      worknameSelect.style.display = 'none';
+      suggestionCount.style.display = 'none';
+      document.getElementById('workprocess').focus();
+    });
+
+    
+
+      // WorkProcess
+      const lastWorkProcess = localStorage.getItem("lastWorkProcess");
+      if (lastWorkProcess && !workprocessSelect.value) { // Flask側でselectedが指定されていない場合
+          workprocessSelect.value = lastWorkProcess;
+      }
+      if (workprocessSelect.value) { // 初期値または復元値があれば単価を取得
+          fetchUnitPrice();
+      }
+      workprocessSelect.addEventListener("change", function () {
+          localStorage.setItem("lastWorkProcess", workprocessSelect.value);
+          fetchUnitPrice();
       });
 
-   
+      // WorkDay
+      // Flaskから渡されたworkdayがある場合はそれを優先 (input type="date" の value属性で設定済み)
+      // なければlocalStorageの値を使用
+      if (!workdayInput.value) {
+          const lastWorkDay = localStorage.getItem("lastWorkDay");
+          if (lastWorkDay) {
+              workdayInput.value = lastWorkDay;
+          }
+      }
+      workdayInput.addEventListener("change", function () {
+          localStorage.setItem("lastWorkDay", workdayInput.value);
+      });
 
-    // WorkProcess
-    const lastWorkProcess = localStorage.getItem("lastWorkProcess");
-    if (lastWorkProcess && !workprocessSelect.value) { // Flask側でselectedが指定されていない場合
-        workprocessSelect.value = lastWorkProcess;
-    }
-    if (workprocessSelect.value) { // 初期値または復元値があれば単価を取得
-        fetchUnitPrice();
-    }
-    workprocessSelect.addEventListener("change", function () {
-        localStorage.setItem("lastWorkProcess", workprocessSelect.value);
-        fetchUnitPrice();
-    });
-
-    // WorkDay
-    // Flaskから渡されたworkdayがある場合はそれを優先 (input type="date" の value属性で設定済み)
-    // なければlocalStorageの値を使用
-    if (!workdayInput.value) {
-        const lastWorkDay = localStorage.getItem("lastWorkDay");
-        if (lastWorkDay) {
-            workdayInput.value = lastWorkDay;
-        }
-    }
-    workdayInput.addEventListener("change", function () {
-        localStorage.setItem("lastWorkDay", workdayInput.value);
-    });
-
-    // --- イベントリスナー ---
-    fetchWorkNameButton.addEventListener("click", function () {
-      fetchWorkNames();
-    });
+      // --- イベントリスナー ---
+      fetchWorkNameButton.addEventListener("click", function () {
+        fetchWorkNames();
+      });
 
     // --- 関数定義 ---
     function fetchWorkNames() {
