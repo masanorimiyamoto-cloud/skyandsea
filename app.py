@@ -279,6 +279,7 @@ def edit_record(record_id):
                                       headers=HEADERS, json=updated_data)
             response.raise_for_status()
             flash("✅ レコードを更新しました！", "success")
+            session['edited_record_id'] = record_id  # この行を追加
         except requests.RequestException as e:
             error_message = e.response.json() if e.response else str(e)
             flash(f"❌ 更新に失敗しました: {error_message}", "error")
@@ -437,6 +438,7 @@ def records(year=None, month=None):
     next_month = first_day_of_next_month.month
     
     new_record_id = session.pop('new_record_id', None)
+    edited_record_id = session.pop('edited_record_id', None)  # この行を追加
     return render_template(
         "records.html",
         records=records_data,

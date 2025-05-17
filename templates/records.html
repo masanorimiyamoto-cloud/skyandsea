@@ -222,7 +222,7 @@
                 <tbody>
                     {% if records %}
                         {% for record in records %}
-                            <tr id="record-{{ record.id }}" {% if record.id == new_record_id %}class="highlight"{% endif %}>
+                            <tr id="record-{{ record.id }}" {% if record.id == new_record_id or record.id == edited_record_id %}class="highlight"{% endif %}>
                                 <td>{{ record.WorkDay }}</td>
                                 <td>{{ record.WorkCD }}</td>
                                 <td>{{ record.WorkName }}</td>
