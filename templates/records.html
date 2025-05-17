@@ -14,24 +14,26 @@
             padding: 10px;
             margin: 0;
         }
+                .container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;       /* ビューポートの高さに合わせる */
+        padding: 10px;
+        box-sizing: border-box;
+        }
+
         .container {
-            max-width: 100%;
-            margin: auto;
-            padding: 10px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-            text-align: left;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;       /* ビューポートの高さに合わせる */
+        padding: 10px;
+        box-sizing: border-box;
         }
-        .table-container {
-            max-height: 75vh;    /* 表示領域の高さに応じて調整 */
-            overflow-y: auto;    /* 縦スクロールを有効化 */
-            overflow-x: auto;
-        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 0;
         }
         th, td {
             border: 1px solid #ddd;
