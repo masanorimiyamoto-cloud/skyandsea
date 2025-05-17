@@ -24,6 +24,8 @@
             text-align: left;
         }
         .table-container {
+            max-height: 75vh;    /* 表示領域の高さに応じて調整 */
+            overflow-y: auto;    /* 縦スクロールを有効化 */
             overflow-x: auto;
         }
         table {
@@ -37,9 +39,13 @@
             text-align: center;
             font-size: 16px; /* テーブルの基本フォントサイズ */
         }
-        th {
+        /* thead の th を固定 */
+        .table-container table thead th {
+            position: sticky;
+            top: 0;
             background-color: #007bff;
             color: white;
+            z-index: 2;
         }
         .icon-button {
             background: none;
