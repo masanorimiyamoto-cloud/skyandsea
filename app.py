@@ -260,67 +260,101 @@ def edit_record(record_id):
         return redirect(url_for("index"))
 
     table_name = f"TablePersonID_{selected_personid}"
-    
-    # GETリクエスト時に、戻り先となる年/月をURLパラメータから取得する試み
-    # edit_record.html側でこの情報をフォームにhiddenで含め、POST時に送り返してもらう想定
-    original_year = request.args.get('year', session.get('current_display_year'))
+
+    # GET時の戻り先年月取得
+    original_year  = request.args.get('year',  session.get('current_display_year'))
     original_month = request.args.get('month', session.get('current_display_month'))
 
-
     if request.method == "POST":
-        updated_data = {
-            "fields": {
-                "WorkDay": request.form.get("WorkDay"),
-                "WorkOutput": int(request.form.get("WorkOutput", 0)),
-            }
+        # --- 更新前フィールドを取得 ---
+        try:
+            orig_resp = requests.get(
+                f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{table_name}/{record_id}",
+                headers=HEADERS
+            )
+            orig_resp.raise_for_status()
+            original_fields = orig_resp.json().get("fields", {})
+        except Exception as e:
+            flash(f"⚠ 更新前データ取得に失敗しました: {e}", "warning")
+            original_fields = {}
+
+        # --- フォームから送られてきた更新値 ---
+        new_workday    = request.form.get("WorkDay")
+        new_workoutput = request.form.get("WorkOutput", "0")
+
+        # Airtable へ PATCH
+        updated_fields = {
+            "WorkDay": new_workday,
+            "WorkOutput": int(new_workoutput)
         }
         try:
-            response = requests.patch(f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{table_name}/{record_id}",
-                                      headers=HEADERS, json=updated_data)
-            response.raise_for_status()
-            flash("✅ レコードを更新しました！", "success")
-            session['edited_record_id'] = record_id  # この行を追加
+            patch_resp = requests.patch(
+                f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{table_name}/{record_id}",
+                headers=HEADERS,
+                json={"fields": updated_fields}
+            )
+            patch_resp.raise_for_status()
+            new_fields = patch_resp.json().get("fields", {})
+
+            # --- 差分を作成 ---
+            changes = []
+            if original_fields.get("WorkDay") != new_fields.get("WorkDay"):
+                changes.append(
+                    f"作業日：{original_fields.get('WorkDay','')}→{new_fields.get('WorkDay','')}"
+                )
+            if str(original_fields.get("WorkOutput","")) != str(new_fields.get("WorkOutput","")):
+                changes.append(
+                    f"作業量：{original_fields.get('WorkOutput','')}→{new_fields.get('WorkOutput','')}"
+                )
+            change_text = "、".join(changes) if changes else "変更なし"
+
+            # --- フラッシュメッセージ ---
+            flash(f"✅ レコードを更新しました！ 更新内容：{change_text}", "success")
+            session['edited_record_id'] = record_id
+
         except requests.RequestException as e:
-            error_message = e.response.json() if e.response else str(e)
-            flash(f"❌ 更新に失敗しました: {error_message}", "error")
-            print(f"❌ Airtable 更新エラー: {error_message}")
-        
-        # 更新後、どの月の表示に戻るか
-        # フォームから送り返された original_year/month または更新後のWorkDayの年月を使用
-        redirect_year_str = request.form.get("original_year", original_year)
-        redirect_month_str = request.form.get("original_month", original_month)
-        
-        updated_workday_str = request.form.get("WorkDay")
-        if updated_workday_str:
-            try:
-                updated_workday_dt = datetime.strptime(updated_workday_str, "%Y-%m-%d")
-                redirect_year_str = str(updated_workday_dt.year)
-                redirect_month_str = str(updated_workday_dt.month)
-            except ValueError:
-                pass # 不正な日付なら元の月情報を使う
+            err = e.response.json() if e.response is not None else str(e)
+            flash(f"❌ 更新に失敗しました: {err}", "error")
 
-        if redirect_year_str and redirect_month_str:
-            try:
-                return redirect(url_for("records", year=int(redirect_year_str), month=int(redirect_month_str)))
-            except ValueError:
-                pass # int変換失敗時
-        return redirect(url_for("records")) # デフォルト表示に戻す
+        # --- リダイレクト先を決定 ---
+        # 更新後の表示年月は、フォーム or original_year/month を優先
+        try:
+            # 日付文字列から年月を抽出
+            dt = datetime.strptime(new_workday, "%Y-%m-%d")
+            redirect_year, redirect_month = dt.year, dt.month
+        except Exception:
+            redirect_year, redirect_month = int(original_year), int(original_month)
 
-    # GETリクエスト (編集対象レコード取得)
+        return redirect(url_for(
+            "records",
+            year=redirect_year,
+            month=redirect_month
+        ))
+
+    # --- GET リクエスト時: 編集フォーム表示用データ取得 ---
     try:
-        response = requests.get(f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{table_name}/{record_id}",
-                                headers=HEADERS)
-        response.raise_for_status()
-        record_data = response.json().get("fields", {})
-        if not record_data:
-             flash(f"❌ 編集対象のレコード (ID: {record_id}) が見つかりません。", "error")
-             return redirect(url_for("records", year=original_year, month=original_month) if original_year and original_month else url_for("records"))
-    except requests.RequestException as e:
-        flash(f"❌ 編集対象レコードの取得に失敗しました: {e}", "error")
-        return redirect(url_for("records", year=original_year, month=original_month) if original_year and original_month else url_for("records"))
-        
-    return render_template("edit_record.html", record=record_data, record_id=record_id,
-                           original_year=original_year, original_month=original_month)
+        resp = requests.get(
+            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{table_name}/{record_id}",
+            headers=HEADERS
+        )
+        resp.raise_for_status()
+        record_data = resp.json().get("fields", {})
+    except Exception as e:
+        flash(f"❌ レコード取得に失敗しました: {e}", "error")
+        return redirect(url_for(
+            "records",
+            year=original_year,
+            month=original_month
+        ))
+
+    return render_template(
+        "edit_record.html",
+        record=record_data,
+        record_id=record_id,
+        original_year=original_year,
+        original_month=original_month
+    )
+
 
 
 # 🆕 **一覧表示のルート (前月・次月機能対応)**
