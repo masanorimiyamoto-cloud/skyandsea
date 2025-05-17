@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Airtable BookSKY_NET 215.15</title>
-  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
-  
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -19,7 +19,7 @@
       padding: 20px;
       background: white;
       border-radius: 8px;
-      box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
       text-align: left;
     }
     label {
@@ -75,6 +75,8 @@
       height: auto;
       margin-bottom: 10px;
     }
+
+    /* worknameSelect は JS で表示/非表示を制御 */
     #worknameSelect {
       font-size: 18px;
       max-height: 200px;
@@ -82,6 +84,8 @@
       border: 2px solid #007bff;
       border-radius: 5px;
       width: 100%;
+      margin-top: 5px; /* 品名フィールドの下にスペースを空ける */
+      display: none;   /* 初期は非表示 */
     }
     #worknameSelect option {
       padding: 8px;
@@ -90,11 +94,12 @@
     #worknameSelect option:last-child {
       border-bottom: none;
     }
-    #suggestionCount {
-      display: none;
-      margin-top: 5px;
-      font-size: 16px;
-      color: #666;
+
+    /* 品名フィールドに候補数表示中を示すスタイル */
+    #worknameInput[data-showing-count="true"] {
+      color: #007bff;
+      font-style: italic;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -113,37 +118,37 @@
           {% endfor %}
         </div>
       {% else %}
-        <div id="flash-message"><p style="color: gray;">新しいデータを入力してください</p></div>
+        <div id="flash-message">
+          <p style="color: gray;">新しいデータを入力してください</p>
+        </div>
       {% endif %}
     {% endwith %}
 
     <form method="POST">
       <label for="personid">📌 PersonID:</label>
       <select id="personid" name="personid" required>
-          <option value="">PersonIDを選択してください</option>
-          {% for id, name in personid_dict.items() %}
-              <option value="{{ id }}" {% if id|string == selected_personid|string %}selected{% endif %}>
-                  {{ id }} - {{ name }}
-              </option>
-          {% endfor %}
+        <option value="">PersonIDを選択してください</option>
+        {% for id, name in personid_dict.items() %}
+          <option value="{{ id }}" {% if id|string == selected_personid|string %}selected{% endif %}>
+            {{ id }} - {{ name }}
+          </option>
+        {% endfor %}
       </select>
 
       <label for="workcd">🔍 作業コード:</label>
       <input type="text" id="workcd" name="workcd" placeholder="3桁以上入力" required>
 
       <label for="worknameInput">📚 品名:</label>
-      <input type="text" id="worknameInput" name="workname" readonly placeholder="自動で表示されます">
+      <input type="text" id="worknameInput" name="workname" readonly placeholder="作業コードを入力すると表示" data-showing-count="false">
       <input type="hidden" id="booknameInput" name="bookname">
-
       <select id="worknameSelect" name="workname" size="5"></select>
-      <div id="suggestionCount"></div>
 
       <label for="workprocess">🛠 行程名:</label>
       <select id="workprocess" name="workprocess" required>
-          <option value="">行程名を選択してください</option>
-          {% for item in workprocess_list %}
-              <option value="{{ item }}" {% if item == workprocess %}selected{% endif %}>{{ item }}</option>
-          {% endfor %}
+        <option value="">行程名を選択してください</option>
+        {% for item in workprocess_list %}
+          <option value="{{ item }}" {% if item == workprocess %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
       </select>
 
       <label for="unitprice">💰 単価:</label>
@@ -158,36 +163,39 @@
       <button type="submit" id="submitButton">送信</button>
     </form>
   </div>
-  <button type="button" id="viewRecordsButton" style="margin-top: 15px; font-size: 18px;">入力一覧確認</button>
 
-  <script>
+  <button id="viewRecordsButton" style="margin-top:15px; font-size:18px;">入力一覧確認</button>
+
+  <script type="module">
+    // ES6 Arrow Functions もエラーになりにくい
     function debounce(fn, wait) {
       let timer = null;
-      return function(...args) {
+      return (...args) => {
         clearTimeout(timer);
         timer = setTimeout(() => fn.apply(this, args), wait);
       };
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-      const workcdInput = document.getElementById('workcd');
-      const worknameInput = document.getElementById('worknameInput');
-      const booknameInput = document.getElementById('booknameInput');
-      const worknameSelect = document.getElementById('worknameSelect');
-      const suggestionCount = document.getElementById('suggestionCount');
-      const workprocessSelect = document.getElementById('workprocess');
-      const unitpriceInput = document.getElementById('unitprice');
-      const workdayInput = document.getElementById('workday');
-      const viewRecordsButton = document.getElementById('viewRecordsButton');
+    document.addEventListener('DOMContentLoaded', () => {
+      const workcdInput     = document.getElementById('workcd');
+      const worknameInput   = document.getElementById('worknameInput');
+      const booknameInput   = document.getElementById('booknameInput');
+      const worknameSelect  = document.getElementById('worknameSelect');
+      const workprocessSel  = document.getElementById('workprocess');
+      const unitpriceInput  = document.getElementById('unitprice');
+      const workdayInput    = document.getElementById('workday');
+      const viewBtn         = document.getElementById('viewRecordsButton');
 
-      function updateSuggestions(suggestions) {
+      // 候補リスト非表示は CSS で設定済み
+
+      function handleSuggestions(suggestions) {
         worknameSelect.innerHTML = '';
         if (suggestions.length === 0) {
-          worknameSelect.style.display = 'none';
-          suggestionCount.style.display = 'none';
+          worknameInput.value = '見つかりません';
+          worknameInput.dataset.showingCount = 'false';
+          booknameInput.value = '';
           return;
         }
-
         suggestions.forEach(it => {
           const opt = document.createElement('option');
           opt.value = it.workname;
@@ -196,75 +204,68 @@
           opt.dataset.bookname = it.bookname;
           worknameSelect.appendChild(opt);
         });
-
-        suggestionCount.textContent = `${suggestions.length}件の候補が見つかりました`;
-        suggestionCount.style.display = 'block';
-        worknameSelect.style.display = 'block';
-        worknameSelect.size = Math.min(suggestions.length, 5);
+        worknameInput.value = `${suggestions.length}件見つかりました`;
+        worknameInput.dataset.showingCount = 'true';
+        booknameInput.value = '';
       }
 
-      worknameSelect.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        if (selectedOption) {
-          workcdInput.value = selectedOption.dataset.code;
-          worknameInput.value = selectedOption.value;
-          booknameInput.value = selectedOption.dataset.bookname;
-          worknameSelect.style.display = 'none';
-          suggestionCount.style.display = 'none';
+      worknameInput.addEventListener('click', () => {
+        if (worknameInput.dataset.showingCount === 'true') {
+          worknameSelect.style.display = 'block';
         }
       });
 
-      const fetchAndFill = debounce(function() {
+      worknameSelect.addEventListener('change', () => {
+        const sel = worknameSelect.options[worknameSelect.selectedIndex];
+        workcdInput.value     = sel.dataset.code;
+        worknameInput.value   = sel.value;
+        worknameInput.dataset.showingCount = 'false';
+        booknameInput.value   = sel.dataset.bookname;
+        worknameSelect.style.display = 'none';
+      });
+
+      const fetchAndFill = debounce(() => {
         const code = workcdInput.value.trim();
         if (code.length < 3) {
-          worknameInput.value = ''; // Clear workname
-          booknameInput.value = ''; // Clear bookname
+          worknameInput.value = '';
+          worknameInput.dataset.showingCount = 'false';
+          booknameInput.value = '';
           worknameSelect.style.display = 'none';
-          suggestionCount.style.display = 'none';
           return;
         }
-
+        worknameInput.value = '検索中...';
         fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
           .then(r => r.json())
           .then(json => {
-            const suggestions = json.worknames || [];
-            if (suggestions.length === 1) {
-              const it = suggestions[0];
-              workcdInput.value = it.code;
+            const arr = json.worknames || [];
+            if (arr.length === 1) {
+              const it = arr[0];
+              workcdInput.value   = it.code;
               worknameInput.value = it.workname;
               booknameInput.value = it.bookname;
-              worknameSelect.style.display = 'none';
-              suggestionCount.style.display = 'none';
             } else {
-              updateSuggestions(suggestions);
+              handleSuggestions(arr);
             }
           })
-          .catch(console.error);
+          .catch(() => {
+            worknameInput.value = 'エラー';
+            worknameInput.dataset.showingCount = 'false';
+            booknameInput.value = '';
+            worknameSelect.style.display = 'none';
+          });
       }, 300);
 
       workcdInput.addEventListener('input', fetchAndFill);
 
-      // 単価取得処理
-      workprocessSelect.addEventListener('change', function() {
-        fetch(`/get_unitprice?workprocess=${encodeURIComponent(this.value)}`)
-          .then(response => response.json())
+      workprocessSel.addEventListener('change', () => {
+        fetch(`/get_unitprice?workprocess=${encodeURIComponent(workprocessSel.value)}`)
+          .then(res => res.json())
           .then(data => unitpriceInput.value = data.unitprice || '')
           .catch(console.error);
       });
-      // 送信ボタンのテキストを送信中に変更し、無効化
-      const form = document.querySelector('form'); // フォーム要素を取得
-      const submitButton = document.getElementById('submitButton'); // 送信ボタンを取得
 
-      form.addEventListener('submit', function() {
-        // ボタンのテキストを変更
-        submitButton.textContent = '送信中...🔄'; // 例: 「送信中...」または「送信中🔄」などの記号
-
-        // ボタンを無効化（連打防止）
-        submitButton.disabled = true;
-      });
-      // 入力一覧確認
-      viewRecordsButton.addEventListener('click', function() {
-        const pid = document.getElementById('personid').value;
+      viewBtn.addEventListener('click', () => {
+        const pid  = document.getElementById('personid').value;
         const date = workdayInput.value;
         if (!pid || !date) {
           alert('PersonIDと作業日を選択してください');
@@ -274,17 +275,21 @@
         window.location.href = `/records/${year}/${month}?personid=${pid}`;
       });
 
-      // ローカルストレージから前回値を復元
-      const lastWorkProcess = localStorage.getItem('lastWorkProcess');
-      if (lastWorkProcess) workprocessSelect.value = lastWorkProcess;
-      workprocessSelect.addEventListener('change', () => {
-        localStorage.setItem('lastWorkProcess', workprocessSelect.value);
-      });
+      // ローカルストレージ復元
+      const lastProc = localStorage.getItem('lastWorkProcess');
+      if (lastProc) workprocessSel.value = lastProc;
+      workprocessSel.addEventListener('change', () => localStorage.setItem('lastWorkProcess', workprocessSel.value));
 
-      const lastWorkDay = localStorage.getItem('lastWorkDay');
-      if (lastWorkDay) workdayInput.value = lastWorkDay;
-      workdayInput.addEventListener('change', () => {
-        localStorage.setItem('lastWorkDay', workdayInput.value);
+      const lastDay = localStorage.getItem('lastWorkDay');
+      if (lastDay) workdayInput.value = lastDay;
+      workdayInput.addEventListener('change', () => localStorage.setItem('lastWorkDay', workdayInput.value));
+
+      // フォーム送信ボタン制御
+      const form = document.querySelector('form');
+      const btn  = document.getElementById('submitButton');
+      form.addEventListener('submit', () => {
+        btn.textContent = '送信中...';
+        btn.disabled = true;
       });
     });
   </script>
