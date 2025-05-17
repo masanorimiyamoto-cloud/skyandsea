@@ -148,6 +148,301 @@
   </div>
   <button type="button" id="viewRecordsButton" style="margin-top: 15px; font-size: 18px;">入力一覧確認</button>
 
- const fetchWorkNameButton = document.getElementById("fetchWorkNameButton");
+  <script>
+    function debounce(fn, wait) {
+      let timer = null;
+      return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), wait);
+      };
+    }
+    // Corrected element references using the actual IDs from HTML
+    const workcdInput    = document.getElementById('workcd');
+    const worknameInput  = document.getElementById('worknameInput'); // Corrected ID
+    const booknameInput  = document.getElementById('booknameInput'); // Corrected ID
+    const worknameSelect = document.getElementById('worknameSelect');
+    const suggestionCount= document.getElementById('suggestionCount');
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const personidSelect = document.getElementById("personid");
+    const workcdInput = document.getElementById("workcd");
+    const worknameSelect = document.getElementById("worknameSelect");
+    // Remove the reference to fetchWorkNameButton as it doesn't exist in the HTML
+    // const fetchWorkNameButton = document.getElementById("fetchWorkNameButton");
+    const workprocessSelect = document.getElementById("workprocess");
+    const workdayInput = document.getElementById("workday");
+    const unitpriceInput = document.getElementById("unitprice");
+    const submitButton = document.getElementById("submitButton");
+
+    // フォーム送信時の処理
+    document.querySelector("form").addEventListener("submit", function () {
+      submitButton.innerHTML = "✅ 送信中..."; // 送信中に表示を変更
+      submitButton.disabled = true; // 重複送信防止のためボタンを無効化
+    });
+
+    // --- localStorageからの値の復元 ---
+    // PersonID
+    // Flaskから渡されたselected_personidがある場合はそれを優先し、なければlocalStorageの値を使用
+    if (!personidSelect.value) { // Flask側でselectedが指定されていない場合
+        const lastPersonID = localStorage.getItem("lastPersonID");
+        if (lastPersonID) {
+            personidSelect.value = lastPersonID;
+        }
+    }
+    personidSelect.addEventListener("change", function () {
+        localStorage.setItem("lastPersonID", personidSelect.value);
+    });
+
+    let lastSuggestions = [];
+
+    function fetchAndRender(code) {
+      console.log('Searching for:', code); // 検索値確認
+      fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
+
+        .then(r => r.json())
+        .then(json => {
+          console.log('API Response:', json); // APIレスポンス確認
+          const list = json.worknames || [];
+          lastSuggestions = list;
+
+          // クリア
+          // Use the corrected IDs for input fields
+          document.getElementById('worknameInput').value = '';
+          document.getElementById('booknameInput').value = '';
+          worknameSelect.innerHTML = '';
+          suggestionCount.style.display = 'none';
+
+          if (list.length === 1) {
+            // 1件 → 自動セット
+            const item = list[0];
+            workcdInput.value   = item.code;
+            document.getElementById('worknameInput').value = item.workname; // Corrected ID
+            document.getElementById('booknameInput').value = item.bookname; // Corrected ID
+          }
+          else if (list.length > 1) {
+            // 複数 → リスト展開＋件数
+            list.forEach(item => {
+              const opt = document.createElement('option');
+              // value に code||workname||bookname を保持
+              opt.value       = `${item.code}||${item.workname}||${item.bookname}`;
+              opt.textContent = `${item.code}: ${item.workname}（${item.bookname}）`;
+              worknameSelect.appendChild(opt);
+            });
+            worknameSelect.style.display = 'block';
+
+            // 件数表示
+            suggestionCount.textContent = `${list.length}件見つかりました。`;
+            suggestionCount.style.display = 'block';
+          }
+          // 0件は blur で「登録コードがありません。」を出す
+        })
+        .catch(console.error);
+    }
+
+    // 入力イベント（3文字以上で部分一致）
+    const debounced = debounce(() => {
+      const c = workcdInput.value.trim();
+      if (c.length >= 3) fetchAndRender(c);
+      else {
+        lastSuggestions = [];
+        // Use the corrected IDs for input fields
+        document.getElementById('worknameInput').value = '';
+        document.getElementById('booknameInput').value = '';
+        worknameSelect.style.display = 'none';
+        worknameSelect.innerHTML = '';
+        suggestionCount.style.display = 'none';
+      }
+    }, 300);
+    workcdInput.addEventListener('input', debounced);
+
+    // blur で未ヒットメッセージ
+    workcdInput.addEventListener('blur', () => {
+      const c = workcdInput.value.trim();
+      if (c.length < 3) return;
+      if (lastSuggestions.length === 0) {
+        worknameSelect.innerHTML = '<option value="">登録コードがありません。</option>';
+        worknameSelect.style.display = 'block';
+      }
+    });
+
+    // 選択後は code/workname/bookname を分解して各欄にセット
+    worknameSelect.addEventListener('change', () => {
+      const [code, name, book] = worknameSelect.value.split('||');
+      workcdInput.value     = code   || '';
+      // Use the corrected IDs for input fields
+      document.getElementById('worknameInput').value   = name   || '';
+      document.getElementById('booknameInput').value   = book   || '';
+      worknameSelect.style.display = 'none';
+      suggestionCount.style.display = 'none';
+      document.getElementById('workprocess').focus();
+    });
+
+      // WorkProcess
+      
+      const lastWorkProcess = localStorage.getItem("lastWorkProcess");
+      if (lastWorkProcess && !workprocessSelect.value) { // Flask側でselectedが指定されていない場合
+          workprocessSelect.value = lastWorkProcess;
+      }
+      if (workprocessSelect.value) { // 初期値または復元値があれば単価を取得
+          fetchUnitPrice();
+      }
+      workprocessSelect.addEventListener("change", function () {
+          localStorage.setItem("lastWorkProcess", workprocessSelect.value);
+          fetchUnitPrice();
+      });
+
+      // WorkDay
+      
+      // Flaskから渡されたworkdayがある場合はそれを優先 (input type="date" の value属性で設定済み)
+      // なければlocalStorageの値を使用
+      if (!workdayInput.value) {
+          const lastWorkDay = localStorage.getItem("lastWorkDay");
+          if (lastWorkDay) {
+              workdayInput.value = lastWorkDay;
+          }
+      }
+      workdayInput.addEventListener("change", function () {
+          localStorage.setItem("lastWorkDay", workdayInput.value);
+      });
+
+      // --- イベントリスナー ---
+      // Remove the listener for the non-existent button
+      // fetchWorkNameButton.addEventListener("click", function () {
+      //   fetchWorkNames();
+      // });
+
+
+    // --- 関数定義 ---
+    // The fetchWorkNames function below is replaced by fetchAndRender. Remove or comment out.
+    /*
+    function fetchWorkNames() {
+      const workcd = workcdInput.value.trim();
+      console.log("候補を取得: workcd =", workcd);
+      // fetchWorkNameButton.innerText = "🔍 品名候補を取得中..."; // Button doesn't exist
+      worknameSelect.innerHTML = '<option value="">品名を選択してください。</option>';
+
+      if (workcd === "") {
+        // fetchWorkNameButton.innerText = "🔍 品名候補を取得"; // Button doesn't exist
+        return;
+      }
+
+      fetch(`/get_worknames?workcd=${encodeURIComponent(workcd)}`)
+        .then(response => response.json())
+        .then(data => {
+          console.log("取得結果:", data);
+          if (!data || typeof data.worknames === "undefined") {
+            alert("サーバからのレスポンスが不正です: " + JSON.stringify(data));
+            // fetchWorkNameButton.innerText = "🔍 品名候補を取得"; // Button doesn't exist
+            return;
+          }
+          if (data.error) {
+            alert(data.error);
+            // fetchWorkNameButton.innerText = "🔍 品名候補を取得"; // Button doesn't exist
+            return;
+          }
+
+          const records = data.worknames;
+          if (records.length === 0) {
+            alert("該当する WorkName が見つかりません");
+            // fetchWorkNameButton.innerText = "🔍 品名候補を取得"; // Button doesn't exist
+            return;
+          }
+
+          // fetchWorkNameButton.innerText = records.length + "件見つかりました。"; // Button doesn't exist
+          records.forEach(record => {
+            const option = document.createElement("option");
+            option.value = record.workname + "||" + record.bookname;
+            option.text = record.workname + (record.bookname ? " (" + record.bookname + ")" : "");
+            worknameSelect.appendChild(option);
+          });
+
+          if (records.length === 1) {
+            worknameSelect.value = records[0].workname + "||" + records[0].bookname;
+            workprocessSelect.focus();
+          } else {
+            worknameSelect.focus();
+          }
+        })
+        .catch(error => {
+            console.error("エラー:", error);
+            alert("品名候補の取得中にエラーが発生しました。");
+            // fetchWorkNameButton.innerText = "🔍 品名候補を取得"; // Button doesn't exist
+        });
+    }
+    */
+
+    function fetchUnitPrice() {
+      // This function seems fine and is called by the workprocess change listener.
+      const workprocess = workprocessSelect.value; // Redeclared, but fine.
+      if (workprocess === "") {
+        unitpriceInput.value = ""; // Redeclared, but fine.
+        return;
+      }
+      fetch(`/get_unitprice?workprocess=${encodeURIComponent(workprocess)}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            unitpriceInput.value = "";
+            // alert(data.error); // 必要に応じてエラー表示
+          } else {
+            unitpriceInput.value = data.unitprice;
+          }
+        })
+        .catch(error => {
+            console.error("単価取得エラー:", error);
+            unitpriceInput.value = "";
+            // alert("単価の取得中にエラーが発生しました。");
+        });
+    }
+
+    // ボタン、PersonIDセレクト、日付入力を取得
+    const viewRecordsButton = document.getElementById("viewRecordsButton"); // Redeclared, but fine.
+
+    if (viewRecordsButton) {
+      viewRecordsButton.addEventListener("click", function() {
+        const pid   = personidSelect.value;
+        const date  = workdayInput.value;  //YYYY-MM-DD形式
+
+        // PersonID 未選択チェック
+        if (!pid) {
+          alert("PersonIDを選択してください。");
+          return;
+        }
+        // 日付未選択チェック
+        if (!date) {
+          alert("作業日を選択してください。");
+          return;
+        }
+
+        // 年／月を取り出してリダイレクト
+        const [year, month] = date.split("-");
+        location.href = `/records/${year}/${month}?personid=${encodeURIComponent(pid)}`;
+      });
+    }
+
+    // The logic below was commented out and related to an older approach or debugging
+    /*
+    // ページロード時の初回 sessionStorage pageLoaded の設定ロジックは、
+    // localStorage の PersonID を不用意にクリアしないようにするため、一旦削除または見直しました。
+    // Flaskから渡される selected_personid を優先し、それが無い場合にlocalStorageの値を使うようにしています。
+    // もし初回アクセス時に localStorage の lastPersonID をクリアしたい明確な理由があれば、
+    // sessionStorage.clear(); のような処理をページの最初に入れることを検討してください。
+    // ただし、現状のロジックではFlaskからの値があればそれが優先されます。
+
+    // フォーム送信失敗で戻ってきた場合に、WorkCDが入力されていれば品名候補を再取得する処理 (任意)
+    if (workcdInput.value.trim() !== "" && worknameSelect.options.length <= 1) { // 初期状態(選択肢が1つ以下)の場合
+        // selected_workname_option があれば、それを復元する処理がHTML側にあるので、
+        // ここで無条件に fetchWorkNames() を呼ぶと、それが上書きされる可能性がある。
+        // Flask側で workname の選択肢自体を渡していないので、
+        // ここで fetchWorkNames を呼んで候補を再表示するのが自然。
+        // ただし、エラーで戻ってきたときに、以前の選択が `selected_workname_option` に入っているはずなので、
+        // その値と候補が一致すればそれを選択状態にしたいが、それは fetchWorkNames 内では難しい。
+        // 現状は、候補を再取得し、もし以前の選択があればユーザーに再選択してもらう形になる。
+        // fetchWorkNames(); // 必要に応じてコメントを外す
+    }
+    */
+
+  });
+  </script>
 </body>
 </html>
