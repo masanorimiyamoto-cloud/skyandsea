@@ -269,14 +269,13 @@
     </div>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const newRecordId = "{{ new_record_id }}";
-        if (newRecordId) {
-            const highlightedRow = document.getElementById(`record-${newRecordId}`);
-            if (highlightedRow) {
-                setTimeout(() => {
-                    highlightedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    
-                }, 100);
+        const newId    = "{{ new_record_id }}";
+        const editId   = "{{ edited_record_id }}";
+        const targetId = editId || newId;
+        if (targetId) {
+            const row = document.getElementById(`record-${targetId}`);
+            if (row) {
+                setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
             }
         }
 

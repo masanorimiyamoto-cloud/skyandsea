@@ -451,6 +451,7 @@ def records(year=None, month=None):
         current_year=year, 
         current_month=month, 
         new_record_id=new_record_id,
+        edited_record_id=edited_record_id,   # ← ここを追加
         prev_year=prev_year,
         prev_month=prev_month,
         next_year=next_year,
