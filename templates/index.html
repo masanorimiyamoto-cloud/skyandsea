@@ -257,10 +257,10 @@
           .catch(err => console.error('品名候補取得エラー:', err));
       }
 
-      // デバウンス付き input → fetchWorknames（3文字以上のみ）
+      // デバウンス付き input → fetchWorknames（2文字以上のみ）
       const debouncedFetch = debounce(() => {
         const code = workcdInput.value.trim();
-        if (code.length >= 3) {
+        if (code.length >= 2) {
           fetchWorknames(code);
         } else {
           // ２文字未満なら候補クリア
@@ -276,7 +276,7 @@
       // フォーカスアウト時に「ヒットなし」を表示
       workcdInput.addEventListener('blur', () => {
         const code = workcdInput.value.trim();
-        if (code.length < 3) return;
+        if (code.length < 2) return;
 
         if (lastSuggestions.length === 0) {
           worknameSelect.innerHTML =
@@ -286,11 +286,23 @@
       });
 
       // セレクトで選んだときはテキスト欄に反映
-      worknameSelect.addEventListener('change', () => {
-        const [name, book] = worknameSelect.value.split('||');
+      // --- 既存の worknameSelect.change ハンドラを以下に置き換え ---
+    worknameSelect.addEventListener('change', () => {
+      const val = worknameSelect.value;
+      if (val) {
+        const [name, book] = val.split('||');
         worknameInput.value = name   || '';
         booknameInput.value = book   || '';
-      });
+      } else {
+        worknameInput.value = '';
+        booknameInput.value = '';
+      }
+      // 選択が完了したらリストを隠す
+      worknameSelect.style.display = 'none';
+      // 必要なら次のフィールドにフォーカス
+      workprocessSelect.focus();
+    });
+
    
 
     // WorkProcess
