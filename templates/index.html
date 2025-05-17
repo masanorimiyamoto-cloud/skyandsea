@@ -271,9 +271,7 @@
       });
 
       // ローカルストレージ復元
-      const lastProc = localStorage.getItem('lastWorkProcess');
-      if (lastProc) workprocessSel.value = lastProc;
-      workprocessSel.addEventListener('change', () => localStorage.setItem('lastWorkProcess', workprocessSel.value));
+     
 
       const lastDay = localStorage.getItem('lastWorkDay');
       if (lastDay) workdayInput.value = lastDay;
