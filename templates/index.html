@@ -291,22 +291,30 @@
         });
     }
 
-    // 修正: 「入力一覧確認」ボタンの処理
-    const viewRecordsButton = document.getElementById("viewRecordsButton");
-    if (viewRecordsButton) {
-        viewRecordsButton.addEventListener("click", function() {
-            const selectedPersonIDValue = personidSelect.value;
-            if (selectedPersonIDValue) {
-                // PersonIDが選択されていれば、クエリパラメータとして付けて画面遷移
-                location.href = `/records?personid=${encodeURIComponent(selectedPersonIDValue)}`;
-            } else {
-                // PersonIDが選択されていなければ、アラートを表示して遷移しないか、
-                // もしくはそのまま /records へ遷移（サーバー側でindexへリダイレクトされる想定）
-                alert("PersonIDを選択してください。");
-                // location.href = '/records'; // PersonID未選択でも遷移させたい場合はこちら
-            }
-        });
-    }
+    // ボタン、PersonIDセレクト、日付入力を取得
+  const viewRecordsButton = document.getElementById("viewRecordsButton");
+  
+  if (viewRecordsButton) {
+    viewRecordsButton.addEventListener("click", function() {
+      const pid   = personidSelect.value;
+      const date  = workdayInput.value;  // YYYY-MM-DD形式
+
+      // PersonID 未選択チェック
+      if (!pid) {
+        alert("PersonIDを選択してください。");
+        return;
+      }
+      // 日付未選択チェック
+      if (!date) {
+        alert("作業日を選択してください。");
+        return;
+      }
+
+      // 年／月を取り出してリダイレクト
+      const [year, month] = date.split("-");
+      location.href = `/records/${year}/${month}?personid=${encodeURIComponent(pid)}`;
+    });
+  }
 
     // ページロード時の初回 sessionStorage pageLoaded の設定ロジックは、
     // localStorage の PersonID を不用意にクリアしないようにするため、一旦削除または見直しました。
