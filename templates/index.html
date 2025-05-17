@@ -190,8 +190,7 @@
       document.addEventListener('DOMContentLoaded', () => {
         // .highlighted が黄色ハイライト用のクラス名の場合
         const el = document.querySelector('tr.highlighted');
-        // もし inline style で background-color: yellow; をつけているなら、次のようにもできます
-        // const el = document.querySelector('tr[style*="background-color: yellow"]');
+        
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -291,14 +290,7 @@
           .then(data => unitpriceInput.value = data.unitprice || '')
           .catch(console.error);
       });
-      document.addEventListener('DOMContentLoaded', () => {
-      // .highlighted が黄色ハイライト用のクラス名の場合
-      const el = document.querySelector('tr.highlighted');
-      // もし inline style で background-color: yellow; をつけているなら、次のようにもできます
-      // const el = document.querySelector('tr[style*="background-color: yellow"]');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      
     });
       // フォーム送信ボタン制御
       const form = document.querySelector('form');
@@ -307,6 +299,30 @@
         btn.textContent = '送信中...';
         btn.disabled = true;
       });
+      document.addEventListener('DOMContentLoaded', () => {
+      // 少し遅らせて描画が終わってからスクロール
+      setTimeout(() => {
+        const row = document.querySelector('tr.highlighted');
+        if (!row) return;
+
+        // スクロール可能な親要素を探す
+        let container = row.parentElement;
+        while (container && container !== document.body) {
+          const style = getComputedStyle(container);
+          if (/(auto|scroll)/.test(style.overflowY)) break;
+          container = container.parentElement;
+        }
+
+        if (container && container !== document.body) {
+          // 親コンテナが見つかったら、その中で中央に寄せる
+          const offset = row.offsetTop - (container.clientHeight / 2) + (row.clientHeight / 2);
+          container.scrollTop = offset;
+        } else {
+          // 見つからなければウィンドウ全体をスクロール
+          const top = row.getBoundingClientRect().top + window.pageYOffset - (window.innerHeight / 2) + (row.clientHeight / 2);
+          window.scrollTo({ top, behavior: 'smooth' });
+        }
+      }, 100);
     });
   </script>
 </body>
