@@ -82,7 +82,7 @@
   <div class="container">
         <div class="header">
          <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="BookSKY Logo" class="logo">
-         <h2>BookSKY_NET 2025.5.15</h2>
+         <h2>BookSKY_NET 2025.5.17</h2>
         </div>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -211,7 +211,7 @@
       worknameInput.value = '';
       booknameInput.value = '';
       worknameSelect.style.display = 'none';
-      worknameSelect.innerHTML = '<option value="">— 品名を選択してください —</option>';
+      worknameSelect.innerHTML = '';
 
       if (!code.trim()) return;
 
@@ -227,6 +227,9 @@
           }
           else if (list.length > 1) {
             // 複数件ならセレクト表示
+            // 先頭に案内文
+            worknameSelect.innerHTML = 
+              '<option value="">複数の候補から選択してください</option>';
             list.forEach(item => {
               const opt = document.createElement('option');
               opt.value       = `${item.workname}||${item.bookname}`;
@@ -236,13 +239,15 @@
             worknameSelect.style.display = 'inline-block';
           }
           else {
-            // 0件なら「登録コードがありません。」をリストに表示
-            worknameSelect.innerHTML = '<option value="">登録コードがありません。</option>';
+            // 0件なら「登録コードがありません。」
+            worknameSelect.innerHTML = 
+              '<option value="">登録コードがありません。</option>';
             worknameSelect.style.display = 'inline-block';
           }
         })
         .catch(err => console.error('品名候補取得エラー:', err));
     }
+
 
 
       // ——— デバウンス付きで input イベントに登録 ———
