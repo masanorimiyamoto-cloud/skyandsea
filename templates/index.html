@@ -149,7 +149,13 @@
   <button type="button" id="viewRecordsButton" style="margin-top: 15px; font-size: 18px;">入力一覧確認</button>
 
   <script>
-
+    function debounce(fn, wait) {
+      let timer = null;
+      return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), wait);
+      };
+    }
     const workcdInput    = document.getElementById('workcd');
     const worknameInput  = document.getElementById('workname');
     const booknameInput  = document.getElementById('bookname');
