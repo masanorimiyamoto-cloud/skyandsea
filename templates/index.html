@@ -149,6 +149,13 @@
   <button type="button" id="viewRecordsButton" style="margin-top: 15px; font-size: 18px;">入力一覧確認</button>
 
   <script>
+
+    const workcdInput    = document.getElementById('workcd');
+    const worknameInput  = document.getElementById('workname');
+    const booknameInput  = document.getElementById('bookname');
+    const worknameSelect = document.getElementById('worknameSelect');
+    const suggestionCount= document.getElementById('suggestionCount');
+
   document.addEventListener("DOMContentLoaded", function () {
     const personidSelect = document.getElementById("personid");
     const workcdInput = document.getElementById("workcd");
@@ -178,13 +185,10 @@
         localStorage.setItem("lastPersonID", personidSelect.value);
     });
         
-          
-
        
-    const worknameInput    = document.getElementById('worknameInput');
-    const booknameInput    = document.getElementById('booknameInput');
-    
-    const suggestionCount  = document.getElementById('suggestionCount');
+
+      
+  
 
     let lastSuggestions = [];
 
