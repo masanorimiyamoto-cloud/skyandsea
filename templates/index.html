@@ -33,13 +33,13 @@
       margin-top: 5px;
       border: 1px solid #ccc;
       border-radius: 5px;
-      font-size: 20px; /* フォーム要素のフォントサイズを大きくする */
-      box-sizing: border-box; /* paddingを含めてwidth 100%にする */
+      font-size: 20px;
+      box-sizing: border-box;
     }
     button {
       background-color: #007bff;
       color: white;
-      font-size: 18px; /* ボタンのフォントサイズ */
+      font-size: 18px;
       border: none;
       cursor: pointer;
       margin-top: 15px;
@@ -48,7 +48,7 @@
       background-color: #0056b3;
     }
     #submitButton {
-    margin-top: 30px; /* 送信ボタンの上部の余白を増やして間隔を広げる */
+      margin-top: 30px;
     }
     .message {
       padding: 10px;
@@ -66,24 +66,45 @@
       color: #721c24;
       border: 1px solid #f5c6cb;
     }
-    /* ロゴとタイトルのためのスタイル */
     .header {
-        text-align: center; /* 中央揃え */
-        margin-bottom: 20px; /* 下のマージン */
+      text-align: center;
+      margin-bottom: 20px;
     }
     .logo {
-        max-width: 100px; /* ロゴの最大幅 */
-        height: auto; /* 高さを自動調整 */
-        margin-bottom: 10px; /* ロゴとタイトルの間 */
+      max-width: 100px;
+      height: auto;
+      margin-bottom: 10px;
+    }
+    #worknameSelect {
+      font-size: 18px;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 2px solid #007bff;
+      border-radius: 5px;
+      width: 100%;
+    }
+    #worknameSelect option {
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+    }
+    #worknameSelect option:last-child {
+      border-bottom: none;
+    }
+    #suggestionCount {
+      display: none;
+      margin-top: 5px;
+      font-size: 16px;
+      color: #666;
     }
   </style>
 </head>
 <body>
   <div class="container">
-        <div class="header">
-         <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="BookSKY Logo" class="logo">
-         <h2>BookSKY_NET 2025.5.17</h2>
-        </div>
+    <div class="header">
+      <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="BookSKY Logo" class="logo">
+      <h2>BookSKY_NET 2025.5.17</h2>
+    </div>
+
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div id="flash-message">
@@ -106,25 +127,17 @@
               </option>
           {% endfor %}
       </select>
-  
-      <input type="text" id="workcd" name="workcd" …>
-      <input type="text" id="worknameInput" name="workname" readonly placeholder="品名が自動で入ります">
+
+      <label for="workcd">🔍 作業コード:</label>
+      <input type="text" id="workcd" name="workcd" placeholder="3桁以上入力" required>
+
+      <label for="worknameInput">📚 品名:</label>
+      <input type="text" id="worknameInput" name="workname" readonly placeholder="自動で表示されます">
       <input type="hidden" id="booknameInput" name="bookname">
 
-      <!-- size を指定して「リストボックス風」に常時展開 -->
-      <!-- 既存の select の下あたりに追加 -->
-    <select id="worknameSelect"
-            name="workname"
-            size="5"
-            style="display:none; width:100%; margin-top:5px;">
-    </select>
+      <select id="worknameSelect" name="workname" size="5"></select>
+      <div id="suggestionCount"></div>
 
-    <!-- 件数表示用 -->
-    <div id="suggestionCount"
-        style="display:none; margin-top:5px; font-size:0.9em; color:#555;">
-    </div>
-
-     
       <label for="workprocess">🛠 行程名:</label>
       <select id="workprocess" name="workprocess" required>
           <option value="">行程名を選択してください</option>
@@ -132,245 +145,136 @@
               <option value="{{ item }}" {% if item == workprocess %}selected{% endif %}>{{ item }}</option>
           {% endfor %}
       </select>
-  
+
       <label for="unitprice">💰 単価:</label>
-      <input type="text" id="unitprice" name="unitprice" readonly value="{{ unitprice if unitprice is defined else '' }}">
-  
+      <input type="text" id="unitprice" name="unitprice" readonly>
+
       <label for="workoutput">📦 数量（個、分）:</label>
-      <input type="text" id="workoutput" name="workoutput" value="{{ workoutput if workoutput is defined else '' }}">
-  
+      <input type="text" id="workoutput" name="workoutput" required>
+
       <label for="workday">📅 作業日:</label>
-      <input type="date" id="workday" name="workday" value="{{ workday if workday is defined else '' }}" required>
-  
+      <input type="date" id="workday" name="workday" required>
+
       <button type="submit" id="submitButton">送信</button>
     </form>
-  
   </div>
   <button type="button" id="viewRecordsButton" style="margin-top: 15px; font-size: 18px;">入力一覧確認</button>
 
   <script>
-    // デバウンス関数はDOMContentLoadedの外に定義しても問題ありません
-    function debounce(fn, wait) {
-      let timer = null;
-      return function(...args) {
-        clearTimeout(timer);
-        timer = setTimeout(() => fn.apply(this, args), wait);
-      };
-    }
+    function debounce(fn, wait) {
+      let timer = null;
+      return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), wait);
+      };
+    }
 
-  // DOMContentLoaded イベントが発生したら実行
-  document.addEventListener("DOMContentLoaded", function () {
-    // ここで全てのDOM要素への参照を取得します
-    const personidSelect = document.getElementById("personid");
-    const workcdInput = document.getElementById("workcd");
-    const worknameInput = document.getElementById("worknameInput"); // HTMLのIDに合わせて修正
-    const booknameInput = document.getElementById("booknameInput"); // HTMLのIDに合わせて修正
-    const worknameSelect = document.getElementById("worknameSelect");
-    const suggestionCount = document.getElementById("suggestionCount");
-    const workprocessSelect = document.getElementById("workprocess");
-    const workdayInput = document.getElementById("workday");
-    const unitpriceInput = document.getElementById("unitprice");
-    const submitButton = document.getElementById("submitButton");
-    const viewRecordsButton = document.getElementById("viewRecordsButton"); // 「入力一覧確認」ボタン
+    document.addEventListener('DOMContentLoaded', function() {
+      const workcdInput = document.getElementById('workcd');
+      const worknameInput = document.getElementById('worknameInput');
+      const booknameInput = document.getElementById('booknameInput');
+      const worknameSelect = document.getElementById('worknameSelect');
+      const suggestionCount = document.getElementById('suggestionCount');
+      const workprocessSelect = document.getElementById('workprocess');
+      const unitpriceInput = document.getElementById('unitprice');
+      const workdayInput = document.getElementById('workday');
+      const viewRecordsButton = document.getElementById('viewRecordsButton');
 
-    // フォーム送信時の処理
-    document.querySelector("form").addEventListener("submit", function () {
-      submitButton.innerHTML = "✅ 送信中..."; // 送信中に表示を変更
-      submitButton.disabled = true; // 重複送信防止のためボタンを無効化
-    });
+      function updateSuggestions(suggestions) {
+        worknameSelect.innerHTML = '';
+        if (suggestions.length === 0) {
+          worknameSelect.style.display = 'none';
+          suggestionCount.style.display = 'none';
+          return;
+        }
 
-    // --- localStorageからの値の復元 ---
-    // PersonID
-    // Flaskから渡されたselected_personidがある場合はそれを優先し、なければlocalStorageの値を使用
-    if (!personidSelect.value) { // Flask側でselectedが指定されていない場合
-        const lastPersonID = localStorage.getItem("lastPersonID");
-        if (lastPersonID) {
-            personidSelect.value = lastPersonID;
-        }
-    }
-    personidSelect.addEventListener("change", function () {
-        localStorage.setItem("lastPersonID", personidSelect.value);
-    });
-
-    let lastSuggestions = []; // 最後に取得した候補リストを保持
-
-    // WorkCDに基づいてWorkName候補を取得し、表示を更新する関数
-    function fetchAndRender(code) {
-      console.log('Searching for:', code); // 検索値確認
-      // バックエンドのAPIを呼び出し
-      fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
-        .then(r => r.json()) // JSONとしてパース
-        .then(json => {
-          console.log('API Response:', json); // APIレスポンス確認
-          const list = json.worknames || []; // 候補リストを取得 (無ければ空リスト)
-          lastSuggestions = list; // 候補を保存
-
-          // 品名入力欄と候補リストをクリア
-          worknameInput.value = '';
-          booknameInput.value = '';
-          worknameSelect.innerHTML = ''; // 既存のoptionを全て削除
-          suggestionCount.style.display = 'none'; // 件数表示を非表示に
-
-          if (list.length === 1) {
-            // 候補が1件の場合、自動で入力欄にセット
-            const item = list[0];
-            workcdInput.value   = item.code;
-            worknameInput.value = item.workname;
-            booknameInput.value = item.bookname;
-            worknameSelect.style.display = 'none'; // リストは非表示のまま
-            suggestionCount.style.display = 'none';
-          } else if (list.length > 1) {
-            // 候補が複数件の場合、リストに表示
-            list.forEach(item => {
-              const opt = document.createElement('option');
-              // value に code||workname||bookname を保持し、選択時に分解できるようにする
-              opt.value       = `${item.code}||${item.workname}||${item.bookname}`;
-              opt.textContent = `${item.code}: ${item.workname}（${item.bookname}）`;
-              worknameSelect.appendChild(opt);
-            });
-            worknameSelect.style.display = 'block'; // リストを表示
-
-            // 件数表示
-            suggestionCount.textContent = `${list.length}件見つかりました。`;
-            suggestionCount.style.display = 'block';
-          }
-          // 候補が0件の場合は、blurイベントで「登録コードがありません。」を表示する
-        })
-        .catch(error => {
-            console.error("品名候補取得エラー:", error); // エラーログ出力
-            // エラー時も表示をクリア
-            worknameInput.value = '';
-            booknameInput.value = '';
-            worknameSelect.innerHTML = '';
-            worknameSelect.style.display = 'none';
-            suggestionCount.style.display = 'none';
-            // 必要であればユーザーにエラーを通知するアラートなどを表示
-            // alert("品名候補の取得中にエラーが発生しました。詳細はコンソールを確認してください。");
+        suggestions.forEach(it => {
+          const opt = document.createElement('option');
+          opt.value = it.workname;
+          opt.textContent = `${it.code}: ${it.workname}`;
+          opt.dataset.code = it.code;
+          opt.dataset.bookname = it.bookname;
+          worknameSelect.appendChild(opt);
         });
-    }
 
-    // WorkCD入力フィールドの 'input' イベントリスナー
-    // ユーザーが文字をタイプするたびに debounced 関数が呼ばれる
-    const debouncedFetch = debounce(() => {
-      const c = workcdInput.value.trim();
-      if (c.length >= 3) {
-        fetchAndRender(c); // 3文字以上で候補取得関数を実行
-      } else {
-        // 3文字未満になったら候補表示をクリア
-        lastSuggestions = [];
-        worknameInput.value = '';
-        booknameInput.value = '';
-        worknameSelect.style.display = 'none';
-        worknameSelect.innerHTML = '';
-        suggestionCount.style.display = 'none';
-      }
-    }, 300); // 300ミリ秒のデバウンス
+        suggestionCount.textContent = `${suggestions.length}件の候補が見つかりました`;
+        suggestionCount.style.display = 'block';
+        worknameSelect.style.display = 'block';
+        worknameSelect.size = Math.min(suggestions.length, 5);
+      }
 
-    workcdInput.addEventListener('input', debouncedFetch); // イベントリスナーを設定
-
-    // WorkCD入力フィールドからフォーカスが外れた時の 'blur' イベントリスナー
-    workcdInput.addEventListener('blur', () => {
-      const c = workcdInput.value.trim();
-      // 3文字以上入力されていて、かつ候補が見つからなかった場合にメッセージを表示
-      if (c.length >= 3 && lastSuggestions.length === 0) {
-        worknameSelect.innerHTML = '<option value="">登録コードがありません。</option>';
-        worknameSelect.style.display = 'block'; // メッセージを表示するためにリストを表示
-        suggestionCount.style.display = 'none'; // 件数表示は非表示
-      } else if (c.length < 3) {
-            // 3文字未満でフォーカスが外れた場合もリストは非表示にする
-            worknameSelect.style.display = 'none';
-            suggestionCount.style.display = 'none';
+      worknameSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption) {
+          workcdInput.value = selectedOption.dataset.code;
+          worknameInput.value = selectedOption.value;
+          booknameInput.value = selectedOption.dataset.bookname;
+          worknameSelect.style.display = 'none';
+          suggestionCount.style.display = 'none';
         }
-    });
+      });
 
-    // WorkName候補リストで項目が選択された時の 'change' イベントリスナー
-    worknameSelect.addEventListener('change', () => {
-      const selectedValue = worknameSelect.value;
-      if (selectedValue) { // 何か項目が選択された場合 (空のoption以外)
-        const [code, name, book] = selectedValue.split('||');
-        workcdInput.value     = code   || '';
-        worknameInput.value   = name   || '';
-        booknameInput.value   = book   || '';
-      } else { // 「登録コードがありません。」などが選択された場合（実際には選択できないが念のため）
-            worknameInput.value = '';
-            booknameInput.value = '';
+      const fetchAndFill = debounce(function() {
+        const code = workcdInput.value.trim();
+        if (code.length < 3) {
+          worknameSelect.style.display = 'none';
+          suggestionCount.style.display = 'none';
+          return;
         }
-      worknameSelect.style.display = 'none'; // リストを非表示に
-      suggestionCount.style.display = 'none'; // 件数表示を非表示に
-      document.getElementById('workprocess').focus(); // 次の入力フィールドにフォーカスを移動
-    });
 
-    // WorkProcess
-    const lastWorkProcess = localStorage.getItem("lastWorkProcess");
-    if (lastWorkProcess && !workprocessSelect.value) { // Flask側でselectedが指定されていない場合
-        workprocessSelect.value = lastWorkProcess;
-    }
-    if (workprocessSelect.value) { // 初期値または復元値があれば単価を取得
-        fetchUnitPrice();
-    }
-    workprocessSelect.addEventListener("change", function () {
-        localStorage.setItem("lastWorkProcess", workprocessSelect.value);
-        fetchUnitPrice();
-    });
+        fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
+          .then(r => r.json())
+          .then(json => {
+            const suggestions = json.worknames || [];
+            if (suggestions.length === 1) {
+              const it = suggestions[0];
+              workcdInput.value = it.code;
+              worknameInput.value = it.workname;
+              booknameInput.value = it.bookname;
+              worknameSelect.style.display = 'none';
+              suggestionCount.style.display = 'none';
+            } else {
+              updateSuggestions(suggestions);
+            }
+          })
+          .catch(console.error);
+      }, 300);
 
-    // WorkDay
-    const lastWorkDay = localStorage.getItem("lastWorkDay");
-    if (!workdayInput.value && lastWorkDay) {
-        workdayInput.value = lastWorkDay;
-    }
-    workdayInput.addEventListener("change", function () {
-        localStorage.setItem("lastWorkDay", workdayInput.value);
-    });
+      workcdInput.addEventListener('input', fetchAndFill);
 
+      // 単価取得処理
+      workprocessSelect.addEventListener('change', function() {
+        fetch(`/get_unitprice?workprocess=${encodeURIComponent(this.value)}`)
+          .then(response => response.json())
+          .then(data => unitpriceInput.value = data.unitprice || '')
+          .catch(console.error);
+      });
 
-    // Unit Price の取得関数 (WorkProcessのchangeイベントで呼び出される)
-    function fetchUnitPrice() {
-      const workprocess = workprocessSelect.value;
-      if (workprocess === "") {
-        unitpriceInput.value = "";
-        return;
-      }
-      fetch(`/get_unitprice?workprocess=${encodeURIComponent(workprocess)}`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.error) {
-            unitpriceInput.value = "";
-            // alert(data.error); // 必要に応じてエラー表示
-          } else {
-            unitpriceInput.value = data.unitprice;
-          }
-        })
-        .catch(error => {
-            console.error("単価取得エラー:", error);
-            unitpriceInput.value = "";
-            // alert("単価の取得中にエラーが発生しました。");
-        });
-    }
+      // 入力一覧確認
+      viewRecordsButton.addEventListener('click', function() {
+        const pid = document.getElementById('personid').value;
+        const date = workdayInput.value;
+        if (!pid || !date) {
+          alert('PersonIDと作業日を選択してください');
+          return;
+        }
+        const [year, month] = date.split('-');
+        window.location.href = `/records/${year}/${month}?personid=${pid}`;
+      });
 
-    // 「入力一覧確認」ボタンのイベントリスナー
-    if (viewRecordsButton) {
-      viewRecordsButton.addEventListener("click", function() {
-        const pid   = personidSelect.value;
-        const date  = workdayInput.value;  //YYYY-MM-DD形式
+      // ローカルストレージから前回値を復元
+      const lastWorkProcess = localStorage.getItem('lastWorkProcess');
+      if (lastWorkProcess) workprocessSelect.value = lastWorkProcess;
+      workprocessSelect.addEventListener('change', () => {
+        localStorage.setItem('lastWorkProcess', workprocessSelect.value);
+      });
 
-        // PersonID 未選択チェック
-        if (!pid) {
-          alert("PersonIDを選択してください。");
-          return;
-        }
-        // 日付未選択チェック
-        if (!date) {
-          alert("作業日を選択してください。");
-          return;
-        }
-
-        // 年／月を取り出してリダイレクト
-        const [year, month] = date.split("-");
-        location.href = `/records/${year}/${month}?personid=${encodeURIComponent(pid)}`;
-      });
-    }
-
-  }); // DOMContentLoaded の終わり
-  </script>
+      const lastWorkDay = localStorage.getItem('lastWorkDay');
+      if (lastWorkDay) workdayInput.value = lastWorkDay;
+      workdayInput.addEventListener('change', () => {
+        localStorage.setItem('lastWorkDay', workdayInput.value);
+      });
+    });
+  </script>
 </body>
 </html>
