@@ -234,21 +234,32 @@ def delete_record(record_id):
     selected_personid = session.get("selected_personid")
     if not selected_personid:
         flash("❌ PersonIDが選択されていません。操作を続行できません。", "error")
-        return redirect(url_for("index")) 
+        return redirect(url_for("index"))
 
-    table_name = f"TablePersonID_{selected_personid}"
-    
+    # Airtable 削除処理（省略）…
     try:
-        response = requests.delete(f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{table_name}/{record_id}", headers=HEADERS)
-        response.raise_for_status() 
+        table_name = f"TablePersonID_{selected_personid}"
+        resp = requests.delete(
+            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{table_name}/{record_id}",
+            headers=HEADERS
+        )
+        resp.raise_for_status()
         flash("✅ レコードを削除しました！", "success")
     except requests.RequestException as e:
         flash(f"❌ 削除に失敗しました: {e}", "error")
-        print(f"❌ Airtable 削除エラー: {e}")
 
-    # 削除後、最後に表示していた月、またはデフォルトの月にリダイレクト
-    # records ルートがよしなに処理してくれることを期待
-    return redirect(url_for("records"))
+    # フォームから年・月を取り出す
+    try:
+        year  = int(request.form.get("year"))
+        month = int(request.form.get("month"))
+    except (TypeError, ValueError):
+        # 万一取れなかったらセッションの current_display をフォールバック
+        year  = session.get("current_display_year")
+        month = session.get("current_display_month")
+
+    # 削除後は必ず同じ年月で一覧を再表示
+    return redirect(url_for("records", year=year, month=month))
+
 
 
 # ✅ レコードの修正ページ

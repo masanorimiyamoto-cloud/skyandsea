@@ -264,6 +264,9 @@
                                 <td>
                                     <a href="{{ url_for('edit_record', record_id=record.id, year=current_year, month=current_month) }}" class="icon-button" title="編集">✏️</a>
                                     <form method="POST" action="{{ url_for('delete_record', record_id=record.id) }}" style="display:inline;">
+                                        <!-- 今見ている年・月を渡す -->
+                                        <input type="hidden" name="year"  value="{{ current_year }}">
+                                        <input type="hidden" name="month" value="{{ current_month }}">
                                         <button type="submit" class="icon-button" title="削除" onclick="return confirm('本当に削除しますか？');">🗑️</button>
                                     </form>
                                 </td>
