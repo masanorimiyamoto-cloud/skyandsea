@@ -166,7 +166,7 @@
 
   <button id="viewRecordsButton" style="margin-top:15px; font-size:18px;">入力一覧確認</button>
 
-  <script type="module">
+  <script>
     // ES6 Arrow Functions もエラーになりにくい
     function debounce(fn, wait) {
       let timer = null;
@@ -257,12 +257,7 @@
 
       workcdInput.addEventListener('input', fetchAndFill);
 
-      workprocessSel.addEventListener('change', () => {
-        fetch(`/get_unitprice?workprocess=${encodeURIComponent(workprocessSel.value)}`)
-          .then(res => res.json())
-          .then(data => unitpriceInput.value = data.unitprice || '')
-          .catch(console.error);
-      });
+      
 
       viewBtn.addEventListener('click', () => {
         const pid  = document.getElementById('personid').value;
@@ -283,7 +278,13 @@
       const lastDay = localStorage.getItem('lastWorkDay');
       if (lastDay) workdayInput.value = lastDay;
       workdayInput.addEventListener('change', () => localStorage.setItem('lastWorkDay', workdayInput.value));
-
+     
+      workprocessSel.addEventListener('change', () => {
+        fetch(`/get_unitprice?workprocess=${encodeURIComponent(workprocessSel.value)}`)
+          .then(res => res.json())
+          .then(data => unitpriceInput.value = data.unitprice || '')
+          .catch(console.error);
+      });
       // フォーム送信ボタン制御
       const form = document.querySelector('form');
       const btn  = document.getElementById('submitButton');
