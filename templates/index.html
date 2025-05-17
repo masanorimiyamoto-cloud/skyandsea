@@ -251,7 +251,17 @@
           .then(data => unitpriceInput.value = data.unitprice || '')
           .catch(console.error);
       });
+      // 送信ボタンのテキストを送信中に変更し、無効化
+      const form = document.querySelector('form'); // フォーム要素を取得
+      const submitButton = document.getElementById('submitButton'); // 送信ボタンを取得
 
+      form.addEventListener('submit', function() {
+        // ボタンのテキストを変更
+        submitButton.textContent = '送信中...🔄'; // 例: 「送信中...」または「送信中🔄」などの記号
+
+        // ボタンを無効化（連打防止）
+        submitButton.disabled = true;
+      });
       // 入力一覧確認
       viewRecordsButton.addEventListener('click', function() {
         const pid = document.getElementById('personid').value;
