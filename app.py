@@ -266,70 +266,47 @@ def edit_record(record_id):
     original_month = request.args.get('month', session.get('current_display_month'))
 
     if request.method == "POST":
-        # --- 更新前フィールドを取得 ---
-        try:
-            orig_resp = requests.get(
-                f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{table_name}/{record_id}",
-                headers=HEADERS
-            )
-            orig_resp.raise_for_status()
-            original_fields = orig_resp.json().get("fields", {})
-        except Exception as e:
-            flash(f"⚠ 更新前データ取得に失敗しました: {e}", "warning")
-            original_fields = {}
-
-        # --- フォームから送られてきた更新値 ---
-        new_workday    = request.form.get("WorkDay")
-        new_workoutput = request.form.get("WorkOutput", "0")
+        # フォームから「編集前／編集後」を取得
+        orig_day    = request.form.get("original_WorkDay", "")
+        orig_output = request.form.get("original_WorkOutput", "")
+        new_day     = request.form.get("WorkDay", "")
+        new_output  = request.form.get("WorkOutput", "")
 
         # Airtable へ PATCH
         updated_fields = {
-            "WorkDay": new_workday,
-            "WorkOutput": int(new_workoutput)
+            "WorkDay": new_day,
+            "WorkOutput": int(new_output)
         }
         try:
-            patch_resp = requests.patch(
+            resp = requests.patch(
                 f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{table_name}/{record_id}",
                 headers=HEADERS,
                 json={"fields": updated_fields}
             )
-            patch_resp.raise_for_status()
-            new_fields = patch_resp.json().get("fields", {})
+            resp.raise_for_status()
 
-            # --- 差分を作成 ---
+            # 差分を作成
             changes = []
-            if original_fields.get("WorkDay") != new_fields.get("WorkDay"):
-                changes.append(
-                    f"作業日：{original_fields.get('WorkDay','')}→{new_fields.get('WorkDay','')}"
-                )
-            if str(original_fields.get("WorkOutput","")) != str(new_fields.get("WorkOutput","")):
-                changes.append(
-                    f"作業量：{original_fields.get('WorkOutput','')}→{new_fields.get('WorkOutput','')}"
-                )
-            change_text = "、".join(changes) if changes else "変更なし"
+            if orig_day    != new_day:
+                changes.append(f"作業日：{orig_day}→{new_day}")
+            if str(orig_output) != str(new_output):
+                changes.append(f"作業量：{orig_output}→{new_output}")
 
-            # --- フラッシュメッセージ ---
-            flash(f"✅ レコードを更新しました！ 更新内容：{change_text}", "success")
+            detail = "、".join(changes) if changes else "（変更なし）"
+            flash(f"✅ レコードを更新しました！ 更新内容：{detail}", "success")
+
             session['edited_record_id'] = record_id
 
         except requests.RequestException as e:
-            err = e.response.json() if e.response is not None else str(e)
+            err = e.response.json() if e.response else str(e)
             flash(f"❌ 更新に失敗しました: {err}", "error")
 
-        # --- リダイレクト先を決定 ---
-        # 更新後の表示年月は、フォーム or original_year/month を優先
+        # リダイレクト先決定（更新後の年月 or 元の年月）
         try:
-            # 日付文字列から年月を抽出
-            dt = datetime.strptime(new_workday, "%Y-%m-%d")
-            redirect_year, redirect_month = dt.year, dt.month
-        except Exception:
-            redirect_year, redirect_month = int(original_year), int(original_month)
-
-        return redirect(url_for(
-            "records",
-            year=redirect_year,
-            month=redirect_month
-        ))
+            dt = datetime.strptime(new_day, "%Y-%m-%d")
+            return redirect(url_for("records", year=dt.year, month=dt.month))
+        except:
+            return redirect(url_for("records"))
 
     # --- GET リクエスト時: 編集フォーム表示用データ取得 ---
     try:
