@@ -187,7 +187,15 @@
       const viewBtn         = document.getElementById('viewRecordsButton');
 
       // 候補リスト非表示は CSS で設定済み
-
+      document.addEventListener('DOMContentLoaded', () => {
+        // .highlighted が黄色ハイライト用のクラス名の場合
+        const el = document.querySelector('tr.highlighted');
+        // もし inline style で background-color: yellow; をつけているなら、次のようにもできます
+        // const el = document.querySelector('tr[style*="background-color: yellow"]');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
       function handleSuggestions(suggestions) {
         worknameSelect.innerHTML = '';
         if (suggestions.length === 0) {
@@ -283,6 +291,15 @@
           .then(data => unitpriceInput.value = data.unitprice || '')
           .catch(console.error);
       });
+      document.addEventListener('DOMContentLoaded', () => {
+      // .highlighted が黄色ハイライト用のクラス名の場合
+      const el = document.querySelector('tr.highlighted');
+      // もし inline style で background-color: yellow; をつけているなら、次のようにもできます
+      // const el = document.querySelector('tr[style*="background-color: yellow"]');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
       // フォーム送信ボタン制御
       const form = document.querySelector('form');
       const btn  = document.getElementById('submitButton');
