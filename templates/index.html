@@ -205,74 +205,93 @@
       const booknameInput  = document.getElementById('booknameInput');
       
 
-      // ——— 候補取得 & 振り分け関数 ———
-      function loadWorknames(code) {
-      // 事前クリア
-      worknameInput.value = '';
-      booknameInput.value = '';
-      worknameSelect.style.display = 'none';
-      worknameSelect.innerHTML = '';
+      
+      // デバウンス関数（そのまま）
+      function debounce(fn, wait) {
+        let timer = null;
+        return function(...args) {
+          clearTimeout(timer);
+          timer = setTimeout(() => fn.apply(this, args), wait);
+        };
+      }
 
-      if (!code.trim()) return;
+     
+      
 
-      fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
-        .then(res => res.json())
-        .then(json => {
-          const list = json.worknames || [];
+      // 最後に取得した候補リストを保持
+      let lastSuggestions = [];
 
-          if (list.length === 1) {
-            // 1件なら自動セット
-            worknameInput.value = list[0].workname;
-            booknameInput.value = list[0].bookname;
-          }
-          else if (list.length > 1) {
-            // 複数件ならセレクト表示
-            // 先頭に案内文
-            worknameSelect.innerHTML = 
-              '<option value="">複数の候補から選択してください</option>';
-            list.forEach(item => {
-              const opt = document.createElement('option');
-              opt.value       = `${item.workname}||${item.bookname}`;
-              opt.textContent = `${item.workname}（${item.bookname}）`;
-              worknameSelect.appendChild(opt);
-            });
-            worknameSelect.style.display = 'inline-block';
-          }
-          else {
-            // 0件なら「登録コードがありません。」
-            worknameSelect.innerHTML = 
-              '<option value="">登録コードがありません。</option>';
-            worknameSelect.style.display = 'inline-block';
-          }
-        })
-        .catch(err => console.error('品名候補取得エラー:', err));
-    }
+      // 候補取得＆振り分け本体（リスト表示はしない）
+      function fetchWorknames(code) {
+        fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
+          .then(res => res.json())
+          .then(json => {
+            const list = json.worknames || [];
+            lastSuggestions = list;  // グローバルに覚えておく
 
+            // まずは入力フィールドをクリア
+            worknameInput.value = '';
+            booknameInput.value = '';
+            worknameSelect.style.display = 'none';
+            worknameSelect.innerHTML = '';
 
+            if (list.length === 1) {
+              // １件だけ自動セット
+              worknameInput.value = list[0].workname;
+              booknameInput.value = list[0].bookname;
+            }
+            else if (list.length > 1) {
+              // 複数件ならその場で表示（案内文付き）
+              worknameSelect.innerHTML =
+                '<option value="">複数の候補から選択してください</option>';
+              list.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value       = `${item.workname}||${item.bookname}`;
+                opt.textContent = `${item.workname}（${item.bookname}）`;
+                worknameSelect.appendChild(opt);
+              });
+              worknameSelect.style.display = 'inline-block';
+            }
+            // list.length===0 の場合は何もしない（入力中は表示せず）
+          })
+          .catch(err => console.error('品名候補取得エラー:', err));
+      }
 
-      // ——— デバウンス付きで input イベントに登録 ———
-      const debouncedLoad = debounce(() => {
+      // デバウンス付き input → fetchWorknames（3文字以上のみ）
+      const debouncedFetch = debounce(() => {
         const code = workcdInput.value.trim();
-        if (code.length >= 2) {
-          loadWorknames(code);
+        if (code.length >= 3) {
+          fetchWorknames(code);
         } else {
-          // 2文字未満なら候補クリア
+          // ２文字未満なら候補クリア
+          lastSuggestions = [];
           worknameInput.value = '';
           booknameInput.value = '';
           worknameSelect.style.display = 'none';
-          worknameSelect.innerHTML = '<option value="">— 品名を選択してください —</option>';
+          worknameSelect.innerHTML = '';
         }
       }, 300);
+      workcdInput.addEventListener('input', debouncedFetch);
 
-      workcdInput.addEventListener('input', debouncedLoad);
+      // フォーカスアウト時に「ヒットなし」を表示
+      workcdInput.addEventListener('blur', () => {
+        const code = workcdInput.value.trim();
+        if (code.length < 3) return;
 
-      // ——— 既存の change イベントはそのまま ———
+        if (lastSuggestions.length === 0) {
+          worknameSelect.innerHTML =
+            '<option value="">登録コードがありません。</option>';
+          worknameSelect.style.display = 'inline-block';
+        }
+      });
+
+      // セレクトで選んだときはテキスト欄に反映
       worknameSelect.addEventListener('change', () => {
         const [name, book] = worknameSelect.value.split('||');
         worknameInput.value = name   || '';
         booknameInput.value = book   || '';
       });
-    
+   
 
     // WorkProcess
     const lastWorkProcess = localStorage.getItem("lastWorkProcess");
