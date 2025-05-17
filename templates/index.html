@@ -217,6 +217,8 @@
       const fetchAndFill = debounce(function() {
         const code = workcdInput.value.trim();
         if (code.length < 3) {
+          worknameInput.value = ''; // Clear workname
+          booknameInput.value = ''; // Clear bookname
           worknameSelect.style.display = 'none';
           suggestionCount.style.display = 'none';
           return;
