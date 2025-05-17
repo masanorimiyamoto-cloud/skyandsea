@@ -193,9 +193,12 @@
     let lastSuggestions = [];
 
     function fetchAndRender(code) {
+      console.log('Searching for:', code); // 検索値確認
       fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
+        
         .then(r => r.json())
         .then(json => {
+          console.log('API Response:', json); // APIレスポンス確認
           const list = json.worknames || [];
           lastSuggestions = list;
 

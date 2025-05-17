@@ -131,38 +131,41 @@ def get_workprocess_data():
 # -------------------------------
 # WorkCD に対応する WorkName/BookName の選択肢を取得する API
 @app.route("/get_worknames", methods=["GET"])
-
 def get_worknames():
-    data = get_cached_workcord_data()  # {"103": [...], "10330": [...], ...}
+    data = get_cached_workcord_data()
     workcd = request.args.get("workcd", "").strip()
     results = []
 
-    # 空なら即返す
     if not workcd:
         return jsonify({"worknames": results, "error": ""})
 
-    # 部分一致（3文字以上）／完全一致
+    # 数値チェックを追加
+    try:
+        workcd_num = int(workcd)
+        workcd = str(workcd_num)
+    except ValueError:
+        return jsonify({"worknames": [], "error": "WorkCDは数値で入力してください"})
+
+    # 部分一致検索ロジックを修正
     if len(workcd) >= 3:
-        for key, lst in data.items():
-            if workcd in key:
-                # keyごとの全レコードに code を付与
-                for item in lst:
+        # 完全一致を優先
+        if workcd in data:
+            for item in data[workcd]:
+                results.append({
+                    "code": workcd,
+                    "workname": item["workname"],
+                    "bookname": item["bookname"]
+                })
+        
+        # 部分一致検索（前方一致）
+        for key in data.keys():
+            if key.startswith(workcd) and key != workcd:
+                for item in data[key]:
                     results.append({
                         "code": key,
                         "workname": item["workname"],
                         "bookname": item["bookname"]
                     })
-    else:
-        try:
-            key = str(int(workcd))
-            for item in data.get(key, []):
-                results.append({
-                    "code": key,
-                    "workname": item["workname"],
-                    "bookname": item["bookname"]
-                })
-        except ValueError:
-            pass
 
     return jsonify({"worknames": results, "error": ""})
 
