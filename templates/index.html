@@ -207,36 +207,43 @@
 
       // ——— 候補取得 & 振り分け関数 ———
       function loadWorknames(code) {
-        // クリア
-        worknameInput.value = '';
-        booknameInput.value = '';
-        worknameSelect.style.display = 'none';
-        worknameSelect.innerHTML = '<option value="">— 品名を選択してください —</option>';
+      // 事前クリア
+      worknameInput.value = '';
+      booknameInput.value = '';
+      worknameSelect.style.display = 'none';
+      worknameSelect.innerHTML = '<option value="">— 品名を選択してください —</option>';
 
-        if (!code.trim()) return;
+      if (!code.trim()) return;
 
-        fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
-          .then(res => res.json())
-          .then(json => {
-            const list = json.worknames || [];
-            if (list.length === 1) {
-              // 1件なら自動セット
-              worknameInput.value = list[0].workname;
-              booknameInput.value = list[0].bookname;
-            }
-            else if (list.length > 1) {
-              // 複数件ならセレクト表示
-              list.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value       = `${item.workname}||${item.bookname}`;
-                opt.textContent = `${item.workname}（${item.bookname}）`;
-                worknameSelect.appendChild(opt);
-              });
-              worknameSelect.style.display = 'inline-block';
-            }
-          })
-          .catch(err => console.error('品名候補取得エラー:', err));
-      }
+      fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
+        .then(res => res.json())
+        .then(json => {
+          const list = json.worknames || [];
+
+          if (list.length === 1) {
+            // 1件なら自動セット
+            worknameInput.value = list[0].workname;
+            booknameInput.value = list[0].bookname;
+          }
+          else if (list.length > 1) {
+            // 複数件ならセレクト表示
+            list.forEach(item => {
+              const opt = document.createElement('option');
+              opt.value       = `${item.workname}||${item.bookname}`;
+              opt.textContent = `${item.workname}（${item.bookname}）`;
+              worknameSelect.appendChild(opt);
+            });
+            worknameSelect.style.display = 'inline-block';
+          }
+          else {
+            // 0件なら「登録コードがありません。」をリストに表示
+            worknameSelect.innerHTML = '<option value="">登録コードがありません。</option>';
+            worknameSelect.style.display = 'inline-block';
+          }
+        })
+        .catch(err => console.error('品名候補取得エラー:', err));
+    }
+
 
       // ——— デバウンス付きで input イベントに登録 ———
       const debouncedLoad = debounce(() => {
