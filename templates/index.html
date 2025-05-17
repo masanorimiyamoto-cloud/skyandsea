@@ -124,7 +124,7 @@
         style="display:none; margin-top:5px; font-size:0.9em; color:#555;">
     </div>
 
-    <button type="button" id="fetchWorkNameButton">🔍 品名候補を取得</button>    
+     
       <label for="workprocess">🛠 行程名:</label>
       <select id="workprocess" name="workprocess" required>
           <option value="">行程名を選択してください</option>
@@ -200,20 +200,21 @@
           booknameInput.value = '';
           worknameSelect.innerHTML = '';
           suggestionCount.style.display = 'none';
-          suggestionCount.textContent = '';
 
           if (list.length === 1) {
-            // 一件ヒット → 自動セット
-            worknameInput.value = list[0].workname;
-            booknameInput.value = list[0].bookname;
+            // 1件 → 自動セット
+            const item = list[0];
+            workcdInput.value   = item.code;
+            worknameInput.value = item.workname;
+            booknameInput.value = item.bookname;
           }
           else if (list.length > 1) {
-            // 複数ヒット → リストを展開 & 件数表示
+            // 複数 → リスト展開＋件数
             list.forEach(item => {
               const opt = document.createElement('option');
-              // 先頭に workcd を付与
-              opt.value       = `${item.workname}||${item.bookname}`;
-              opt.textContent = `${code}: ${item.workname}（${item.bookname}）`;
+              // value に code||workname||bookname を保持
+              opt.value       = `${item.code}||${item.workname}||${item.bookname}`;
+              opt.textContent = `${item.code}: ${item.workname}（${item.bookname}）`;
               worknameSelect.appendChild(opt);
             });
             worknameSelect.style.display = 'block';
@@ -222,28 +223,27 @@
             suggestionCount.textContent = `${list.length}件見つかりました。`;
             suggestionCount.style.display = 'block';
           }
-          // hit=0 は blur 停止時に表示
+          // 0件は blur で「登録コードがありません。」を出す
         })
         .catch(console.error);
     }
 
+    // 入力イベント（3文字以上で部分一致）
     const debounced = debounce(() => {
       const c = workcdInput.value.trim();
-      if (c.length >= 3) {
-        fetchAndRender(c);
-      } else {
-        // 3文字未満ならクリア
+      if (c.length >= 3) fetchAndRender(c);
+      else {
         lastSuggestions = [];
         worknameInput.value = '';
         booknameInput.value = '';
         worknameSelect.style.display = 'none';
         worknameSelect.innerHTML = '';
         suggestionCount.style.display = 'none';
-        suggestionCount.textContent = '';
       }
     }, 300);
     workcdInput.addEventListener('input', debounced);
 
+    // blur で未ヒットメッセージ
     workcdInput.addEventListener('blur', () => {
       const c = workcdInput.value.trim();
       if (c.length < 3) return;
@@ -253,15 +253,16 @@
       }
     });
 
+    // 選択後は code/workname/bookname を分解して各欄にセット
     worknameSelect.addEventListener('change', () => {
-      const [name, book] = worknameSelect.value.split('||');
+      const [code, name, book] = worknameSelect.value.split('||');
+      workcdInput.value     = code   || '';
       worknameInput.value   = name   || '';
       booknameInput.value   = book   || '';
       worknameSelect.style.display = 'none';
       suggestionCount.style.display = 'none';
       document.getElementById('workprocess').focus();
     });
-
     
 
       // WorkProcess

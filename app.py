@@ -131,29 +131,41 @@ def get_workprocess_data():
 # -------------------------------
 # WorkCD に対応する WorkName/BookName の選択肢を取得する API
 @app.route("/get_worknames", methods=["GET"])
+
 def get_worknames():
-    data = get_cached_workcord_data()  # {"105": [...], "1055": [...], ...}
+    data = get_cached_workcord_data()  # {"103": [...], "10330": [...], ...}
     workcd = request.args.get("workcd", "").strip()
     results = []
 
-    # 入力が空文字なら即返却
+    # 空なら即返す
     if not workcd:
         return jsonify({"worknames": results, "error": ""})
 
-    # 入力が3文字以上なら「部分一致」、それ未満は「完全一致」
+    # 部分一致（3文字以上）／完全一致
     if len(workcd) >= 3:
         for key, lst in data.items():
             if workcd in key:
-                results.extend(lst)
+                # keyごとの全レコードに code を付与
+                for item in lst:
+                    results.append({
+                        "code": key,
+                        "workname": item["workname"],
+                        "bookname": item["bookname"]
+                    })
     else:
-        # 完全一致のケース（2桁以下）
         try:
             key = str(int(workcd))
-            results = data.get(key, [])
+            for item in data.get(key, []):
+                results.append({
+                    "code": key,
+                    "workname": item["workname"],
+                    "bookname": item["bookname"]
+                })
         except ValueError:
-            results = []
+            pass
 
     return jsonify({"worknames": results, "error": ""})
+
 
 
 
