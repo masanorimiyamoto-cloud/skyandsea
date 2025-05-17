@@ -22,6 +22,7 @@
         box-sizing: border-box;
         }
 
+        /* 修正後のスタイル */
         .container {
             max-width: 100%;
             margin: auto;
@@ -30,11 +31,12 @@
             border-radius: 8px;
             box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
             text-align: left;
-            height: 100vh; /* ビューポート全体の高さを使用 */
+            height: 100vh; 
             display: flex;
             flex-direction: column;
-            overflow: hidden; /* 内部要素のはみ出しを制御 */
+            /* overflow: hidden; この行を削除 */
         }
+
         /* タイトル固定用 */
         h2 {
             position: sticky;
