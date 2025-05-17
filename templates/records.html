@@ -23,13 +23,27 @@
         }
 
         .container {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;       /* ビューポートの高さに合わせる */
-        padding: 10px;
-        box-sizing: border-box;
+            max-width: 100%;
+            margin: auto;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            text-align: left;
+            height: 100vh; /* ビューポート全体の高さを使用 */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* 内部要素のはみ出しを制御 */
         }
-
+        /* タイトル固定用 */
+        h2 {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 3;
+            padding: 10px 0;
+            margin: 0;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -62,13 +76,13 @@
             opacity: 0.7;
         }
 
-        /* ナビゲーションコントロール */
+        /* ナビゲーションコントロール固定 */
         .navigation-controls {
-            display: flex;
-            justify-content: space-between; /* PCでは左右に配置 */
-            align-items: center;
-            margin-bottom: 15px;
-            flex-wrap: wrap; /* 必要に応じて折り返し */
+            position: sticky;
+            top: 60px; /* h2の高さ分下げる */
+            background: white;
+            z-index: 1;
+            padding: 10px 0;
         }
         .nav-button {
             background-color: #007bff;
