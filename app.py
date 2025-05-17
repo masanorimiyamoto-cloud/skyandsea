@@ -598,8 +598,14 @@ def index():
                            personid_list=personid_list_data,
                            personid_dict=personid_dict_data,
                            selected_personid=selected_personid_session, 
-                           workday=workday_default)
-
+                           workday=workday_default,
+                    # ↓ 以下を追加 ↓
+                           workcd="",                          # WorkCD
+                            workoutput="",                      # 数量
+                            workprocess="",                     # WorkProcess
+                            selected_workname_option="",        # 「WorkName||BookName」のセレクト値
+                            unitprice=""                       # UnitPrice（JSで表示している場合は空文字）
+    )
 
 if __name__ == "__main__":
     from waitress import serve
