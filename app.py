@@ -528,15 +528,22 @@ def index():
                 flash("⚠ 作業日はYYYY-MM-DDの形式で入力してください！", "error")
                 error_occurred = True
 
-        if workcd and not selected_option and not error_occurred: # WorkCD入力時のみWorkName選択を必須とする場合
-            flash("⚠ WorkCDに対応するWorkNameの選択が必要です！", "error")
+        # --- index() の POST 部分より抜粋 ---
+        selected_option = request.form.get("workname", "").strip()
+
+        if not selected_option and workcd:  
+            flash("⚠ WorkNameの選択が必要です！", "error")
             error_occurred = True
-        elif selected_option: # WorkNameが選択されている場合
-            try:
-                workname, bookname = selected_option.split("||")
-            except ValueError:
-                flash("⚠ WorkNameの選択値に不正な形式が含まれています。", "error")
-                error_occurred = True
+
+        elif selected_option:
+            # “||” があれば split、無ければ booknameInput の値を使う
+            if "||" in selected_option:
+                workname, bookname = selected_option.split("||", 1)
+            else:
+                workname = selected_option
+                # hidden フィールドから取得
+                bookname = request.form.get("bookname", "").strip()
+
         
         if error_occurred:
             return render_template("index.html",
