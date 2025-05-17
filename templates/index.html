@@ -299,31 +299,47 @@
         btn.textContent = '送信中...';
         btn.disabled = true;
       });
-      document.addEventListener('DOMContentLoaded', () => {
-      // 少し遅らせて描画が終わってからスクロール
-      setTimeout(() => {
-        const row = document.querySelector('tr.highlighted');
-        if (!row) return;
+     
+    // スクロール処理用の関数を追加
+    function scrollToHighlightedRow() {
+      const row = document.querySelector('tr.highlighted');
+      if (!row) return;
 
-        // スクロール可能な親要素を探す
-        let container = row.parentElement;
-        while (container && container !== document.body) {
-          const style = getComputedStyle(container);
-          if (/(auto|scroll)/.test(style.overflowY)) break;
-          container = container.parentElement;
-        }
+      // スクロール可能な親コンテナを探す
+      let container = row.parentElement;
+      while (container && container !== document.body) {
+        const style = getComputedStyle(container);
+        if (/(auto|scroll)/.test(style.overflowY)) break;
+        container = container.parentElement;
+      }
 
-        if (container && container !== document.body) {
-          // 親コンテナが見つかったら、その中で中央に寄せる
-          const offset = row.offsetTop - (container.clientHeight / 2) + (row.clientHeight / 2);
-          container.scrollTop = offset;
-        } else {
-          // 見つからなければウィンドウ全体をスクロール
-          const top = row.getBoundingClientRect().top + window.pageYOffset - (window.innerHeight / 2) + (row.clientHeight / 2);
-          window.scrollTo({ top, behavior: 'smooth' });
-        }
-      }, 100);
+      // スクロール実行
+  const scrollOptions = {
+    behavior: 'smooth',
+    block: 'center'
+  };
+
+  if (container && container !== document.body) {
+    console.log('コンテナスクロールを実行');
+    const rowRect = row.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const offset = rowRect.top - containerRect.top - (container.clientHeight / 2) + (rowRect.height / 2);
+    
+    container.scrollTo({
+      top: container.scrollTop + offset,
+      behavior: 'smooth'
     });
+  } else {
+    console.log('直接スクロールを実行');
+    row.scrollIntoView(scrollOptions);
+  }
+}
+
+
+    // DOM読み込み後とページ遷移後の両方に対応
+    document.addEventListener('DOMContentLoaded', scrollToHighlightedRow);
+    window.addEventListener('load', scrollToHighlightedRow);
+ 
   </script>
 </body>
 </html>
