@@ -132,15 +132,25 @@ def get_workprocess_data():
 # WorkCD に対応する WorkName/BookName の選択肢を取得する API
 @app.route("/get_worknames", methods=["GET"])
 def get_worknames():
-    data = get_cached_workcord_data()
+    data = get_cached_workcord_data()  # { "123": [ {workname,bookname}, ... ], ... }
     workcd = request.args.get("workcd", "").strip()
-    try:
-        workcd_num = int(workcd)
-        workcd_key = str(workcd_num)
-    except ValueError:
-        return jsonify({"worknames": [], "error": "⚠ WorkCD は数値で入力してください！"})
-    records = data.get(workcd_key, [])
-    return jsonify({"worknames": records, "error": ""})
+    results = []
+
+    if len(workcd) >= 3:
+        # 部分一致: キーに workcd が含まれるものをすべて
+        for key, lst in data.items():
+            if workcd in key:
+                results.extend(lst)
+    else:
+        # 従来の完全一致
+        try:
+            key = str(int(workcd))
+            results = data.get(key, [])
+        except ValueError:
+            results = []
+
+    return jsonify({"worknames": results, "error": ""})
+
 
 # -------------------------------
 # WorkProcess に対応する UnitPrice を取得する API
