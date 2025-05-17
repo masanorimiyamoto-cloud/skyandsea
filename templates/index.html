@@ -107,35 +107,18 @@
           {% endfor %}
       </select>
   
-      <label for="workcd">🔢 品名コード番号</label>
-      <!-- 品番入力 -->
-      <label for="workcd">WorkCD:</label>
-      <input type="text"
-            id="workcd"
-            name="workcd"
-            value="{{ workcd if workcd is defined else '' }}"
-            required>
+      <input type="text" id="workcd" name="workcd" …>
+      <input type="text" id="worknameInput" name="workname" readonly placeholder="品名が自動で入ります">
+      <input type="hidden" id="booknameInput" name="bookname">
 
-      <!-- 自動で埋め込むテキスト入力（読み取り専用） -->
-      <label for="worknameInput">WorkName:</label>
-      <input type="text"
-            id="worknameInput"
-            name="workname"
-            value="{{ workname if workname is defined else '' }}"
-            readonly
-            placeholder="品名が自動で入ります">
-
-      <!-- BookName を送信する隠しフィールド -->
-      <input type="hidden"
-            id="booknameInput"
-            name="bookname"
-            value="{{ bookname if bookname is defined else '' }}">
-
-      <!-- 複数候補のときだけ出るセレクト -->
-      <select id="worknameSelect" style="display:none;">
-        <option value="">— 品名を選択してください —</option>
+      <!-- size を指定して「リストボックス風」に常時展開 -->
+      <select id="worknameSelect"
+              name="workname"
+              size="5"
+              style="display:none; width:100%; margin-top:5px;">
       </select>
-  
+
+    <button type="button" id="fetchWorkNameButton">🔍 品名候補を取得</button>    
       <label for="workprocess">🛠 行程名:</label>
       <select id="workprocess" name="workprocess" required>
           <option value="">行程名を選択してください</option>

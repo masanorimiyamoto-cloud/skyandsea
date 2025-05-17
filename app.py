@@ -132,17 +132,21 @@ def get_workprocess_data():
 # WorkCD に対応する WorkName/BookName の選択肢を取得する API
 @app.route("/get_worknames", methods=["GET"])
 def get_worknames():
-    data = get_cached_workcord_data()  # { "123": [ {workname,bookname}, ... ], ... }
+    data = get_cached_workcord_data()  # {"105": [...], "1055": [...], ...}
     workcd = request.args.get("workcd", "").strip()
     results = []
 
+    # 入力が空文字なら即返却
+    if not workcd:
+        return jsonify({"worknames": results, "error": ""})
+
+    # 入力が3文字以上なら「部分一致」、それ未満は「完全一致」
     if len(workcd) >= 3:
-        # 部分一致: キーに workcd が含まれるものをすべて
         for key, lst in data.items():
             if workcd in key:
                 results.extend(lst)
     else:
-        # 従来の完全一致
+        # 完全一致のケース（2桁以下）
         try:
             key = str(int(workcd))
             results = data.get(key, [])
@@ -150,6 +154,7 @@ def get_worknames():
             results = []
 
     return jsonify({"worknames": results, "error": ""})
+
 
 
 # -------------------------------
