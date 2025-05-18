@@ -36,6 +36,13 @@
             font-size: 20px; /* フォーム要素のフォントサイズを統一 */
             box-sizing: border-box;
         }
+        /* 既存のCSSに以下を追加 */
+        #worknameSelect {
+            display: block !important; /* 常に表示する */
+            max-height: 200px; /* 最大高を指定 */
+            overflow-y: auto; /* スクロール可能に */
+            border: 1px solid #007bff; /* 強調表示 */
+        }
         button {
             background-color: #007bff;
             color: white;
@@ -198,34 +205,36 @@
                 booknameInput.value = '';
             }
 
-            function expandWorknameOptions() {
-            console.log("expandWorknameOptions triggered. isWorknameSelectShowingMessage:", isWorknameSelectShowingMessage, "suggestionsCache.length:", suggestionsCache.length); // ★ログ追加
-            if (isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
-                worknameSelect.innerHTML = ''; // メッセージオプションをクリア
-                console.log("Cleared worknameSelect HTML"); // ★ログ追加
+             function expandWorknameOptions() {
+              if (isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
+                  worknameSelect.innerHTML = '';
+                  
+                  // プレースホルダーオプションを追加
+                  const placeholderOption = document.createElement('option');
+                  placeholderOption.textContent = '品名を選択してください...';
+                  placeholderOption.value = "";
+                  placeholderOption.disabled = true;
+                  placeholderOption.selected = true;
+                  worknameSelect.appendChild(placeholderOption);
 
-                const placeholderOption = document.createElement('option');
-                placeholderOption.textContent = '品名を選択してください...';
-                placeholderOption.value = "";
-                placeholderOption.selected = true;
-                worknameSelect.appendChild(placeholderOption);
+                  // 候補を追加
+                  suggestionsCache.forEach(item => {
+                      const option = document.createElement('option');
+                      option.value = item.workname;
+                      option.textContent = `${item.code}: ${item.workname}`;
+                      option.dataset.code = item.code;
+                      option.dataset.bookname = item.bookname;
+                      worknameSelect.appendChild(option);
+                  });
 
-                suggestionsCache.forEach(item => {
-                    const option = document.createElement('option');
-                    option.value = item.workname;
-                    option.textContent = `${item.code}: ${item.workname}`;
-                    option.dataset.code = item.code;
-                    option.dataset.bookname = item.bookname;
-                    worknameSelect.appendChild(option);
-                });
-                isWorknameSelectShowingMessage = false; // 候補表示モードへ変更
-                console.log("worknameSelect HTML after populating options:", worknameSelect.innerHTML); // ★ログ追加
+                  isWorknameSelectShowingMessage = false;
+                  
+                  // ドロップダウンを展開する
+                  worknameSelect.size = suggestionsCache.length + 1 > 5 ? 5 : suggestionsCache.length + 1;
+                  worknameSelect.focus();
+              }
+          }
 
-                // ドロップダウンを強制的に開く試み (非標準であり、動作しない可能性が高い)
-                // worknameSelect.dispatchEvent(new MouseEvent('mousedown')); // これはイベントループの問題を引き起こす可能性
-                // worknameSelect.click(); // 同上
-            }
-        }
 
             worknameSelect.addEventListener('mousedown', expandWorknameOptions);
             worknameSelect.addEventListener('focus', expandWorknameOptions); // キーボード操作対応
