@@ -199,27 +199,33 @@
             }
 
             function expandWorknameOptions() {
-                if (isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
-                    worknameSelect.innerHTML = ''; // メッセージオプションをクリア
+            console.log("expandWorknameOptions triggered. isWorknameSelectShowingMessage:", isWorknameSelectShowingMessage, "suggestionsCache.length:", suggestionsCache.length); // ★ログ追加
+            if (isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
+                worknameSelect.innerHTML = ''; // メッセージオプションをクリア
+                console.log("Cleared worknameSelect HTML"); // ★ログ追加
 
-                    const placeholderOption = document.createElement('option');
-                    placeholderOption.textContent = '品名を選択してください...';
-                    placeholderOption.value = "";
-                    // placeholderOption.disabled = true; // 必要に応じて無効化
-                    placeholderOption.selected = true;
-                    worknameSelect.appendChild(placeholderOption);
+                const placeholderOption = document.createElement('option');
+                placeholderOption.textContent = '品名を選択してください...';
+                placeholderOption.value = "";
+                placeholderOption.selected = true;
+                worknameSelect.appendChild(placeholderOption);
 
-                    suggestionsCache.forEach(item => {
-                        const option = document.createElement('option');
-                        option.value = item.workname;
-                        option.textContent = `${item.code}: ${item.workname}`;
-                        option.dataset.code = item.code;
-                        option.dataset.bookname = item.bookname;
-                        worknameSelect.appendChild(option);
-                    });
-                    isWorknameSelectShowingMessage = false; // 候補表示モードへ変更
-                }
+                suggestionsCache.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.workname;
+                    option.textContent = `${item.code}: ${item.workname}`;
+                    option.dataset.code = item.code;
+                    option.dataset.bookname = item.bookname;
+                    worknameSelect.appendChild(option);
+                });
+                isWorknameSelectShowingMessage = false; // 候補表示モードへ変更
+                console.log("worknameSelect HTML after populating options:", worknameSelect.innerHTML); // ★ログ追加
+
+                // ドロップダウンを強制的に開く試み (非標準であり、動作しない可能性が高い)
+                // worknameSelect.dispatchEvent(new MouseEvent('mousedown')); // これはイベントループの問題を引き起こす可能性
+                // worknameSelect.click(); // 同上
             }
+        }
 
             worknameSelect.addEventListener('mousedown', expandWorknameOptions);
             worknameSelect.addEventListener('focus', expandWorknameOptions); // キーボード操作対応
