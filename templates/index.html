@@ -33,13 +33,13 @@
             margin-top: 5px;
             border: 1px solid #ccc;
             border-radius: 5px;
-            font-size: 20px;
+            font-size: 20px; /* フォーム要素のフォントサイズを統一 */
             box-sizing: border-box;
         }
         button {
             background-color: #007bff;
             color: white;
-            font-size: 18px;
+            font-size: 18px; /* ボタンのフォントサイズ */
             border: none;
             cursor: pointer;
             margin-top: 15px;
@@ -77,29 +77,23 @@
         }
 
         #worknameSelect {
-            font-size: 18px;
-            max-height: 200px; /* 候補リストの最大高さ */
-            overflow-y: auto; /* 高さを超えたらスクロール */
-            border: 2px solid #007bff; /* 候補リストの枠線 */
+            /* font-size は input, select, button で共通指定 */
+            /* max-height や overflow-y はドロップダウンの場合ブラウザ標準挙動 */
+            border: 1px solid #ccc; /* 他のinput/selectとスタイルを合わせる */
+            /* border: 2px solid #007bff; */ /* 強調する場合はこちらでも可 */
             border-radius: 5px;
             width: 100%;
-            margin-top: 5px; /* 品名フィールドの下にスペースを空ける */
-            /* display: none;  JaveScriptで制御するため、ここでの指定は削除またはコメントアウト */
+            margin-top: 5px;
         }
         #worknameSelect option {
-            padding: 8px;
+            padding: 8px; /* optionのpaddingはブラウザにより解釈が異なる場合あり */
             border-bottom: 1px solid #ddd;
         }
         #worknameSelect option:last-child {
             border-bottom: none;
         }
 
-        /* 品名フィールドに候補数表示中を示すスタイル */
-        #worknameInput[data-showing-count="true"] {
-            color: #007bff;
-            font-style: italic;
-            /* cursor: pointer;  クリック操作は不要になるため削除 */
-        }
+        /* worknameInputに関連するCSSは削除 */
     </style>
 </head>
 <body>
@@ -137,12 +131,9 @@
             <label for="workcd">🔍 作業コード:</label>
             <input type="text" id="workcd" name="workcd" placeholder="3桁以上入力" required>
 
-            <label for="worknameInput">📚 品名:</label>
-            <input type="text" id="worknameInput" readonly placeholder="作業コードを3桁以上入力してください" data-showing-count="false">
+            <label for="worknameSelect">📚 品名:</label>
             <input type="hidden" id="booknameInput" name="bookname">
-            <select id="worknameSelect" name="workname" size="5"></select>
-
-            <label for="workprocess">🛠 行程名:</label>
+            <select id="worknameSelect" name="workname"></select> <label for="workprocess">🛠 行程名:</label>
             <select id="workprocess" name="workprocess" required>
                 <option value="">行程名を選択してください</option>
                 {% for item in workprocess_list %}
@@ -166,7 +157,6 @@
     <button id="viewRecordsButton" style="margin-top:15px; font-size:18px;">入力一覧確認</button>
 
     <script>
-        // Debounce function to limit how often fetchAndFill is called
         function debounce(fn, wait) {
             let timer = null;
             return (...args) => {
@@ -177,121 +167,109 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const workcdInput     = document.getElementById('workcd');
-            const worknameInput   = document.getElementById('worknameInput'); // Read-only display for status/selection
-            const booknameInput   = document.getElementById('booknameInput'); // Hidden bookname
-            const worknameSelect  = document.getElementById('worknameSelect'); // Select for suggestions
+            const booknameInput   = document.getElementById('booknameInput');
+            const worknameSelect  = document.getElementById('worknameSelect');
             const workprocessSel  = document.getElementById('workprocess');
             const unitpriceInput  = document.getElementById('unitprice');
             const workdayInput    = document.getElementById('workday');
             const viewBtn         = document.getElementById('viewRecordsButton');
 
-            worknameSelect.style.display = 'none'; // Initially hide the select list
+            let suggestionsCache = [];
+            let isWorknameSelectShowingMessage = true; // trueの時、worknameSelectはメッセージ表示中
 
-            // --- Initial scroll for highlighted row (if any) ---
+            worknameSelect.style.display = 'none'; // 初期状態では非表示
+
             const highlightedRow = document.querySelector('tr.highlighted');
             if (highlightedRow) {
                 highlightedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
 
-            // Function to handle the suggestions fetched from the backend
-            function handleSuggestions(suggestions) {
-                worknameSelect.innerHTML = ''; // Clear previous suggestions
-                if (suggestions.length === 0) {
-                    worknameInput.value = '見つかりません';
-                    worknameInput.dataset.showingCount = 'false';
-                    worknameSelect.style.display = 'none'; // Hide the select
-                    worknameSelect.value = '';
-                    booknameInput.value = '';
-                    return;
-                }
-
-                suggestions.forEach(item => {
-                    const option = document.createElement('option');
-                    option.value = item.workname;
-                    option.textContent = `${item.code}: ${item.workname}`;
-                    option.dataset.code = item.code;
-                    option.dataset.bookname = item.bookname;
-                    worknameSelect.appendChild(option);
-                });
-
-                worknameInput.value = `${suggestions.length}件の候補があります`;
-                worknameInput.dataset.showingCount = 'true';
-                worknameSelect.value = ''; // Clear previous selection, let user choose
+            function populateWorknameSelectWithMessage(message, isError = false) {
+                worknameSelect.innerHTML = '';
+                const option = document.createElement('option');
+                option.textContent = message;
+                option.value = "";
+                option.disabled = true;
+                option.selected = true;
+                worknameSelect.appendChild(option);
+                worknameSelect.style.display = 'block';
+                isWorknameSelectShowingMessage = true;
+                suggestionsCache = []; // メッセージ表示時はキャッシュをクリア
                 booknameInput.value = '';
-                worknameSelect.style.display = 'block'; // Show the select list
             }
 
-            // --- Event Listeners ---
+            function expandWorknameOptions() {
+                if (isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
+                    worknameSelect.innerHTML = ''; // メッセージオプションをクリア
 
-            // Handle selection from the worknameSelect listbox
+                    const placeholderOption = document.createElement('option');
+                    placeholderOption.textContent = '品名を選択してください...';
+                    placeholderOption.value = "";
+                    // placeholderOption.disabled = true; // 必要に応じて無効化
+                    placeholderOption.selected = true;
+                    worknameSelect.appendChild(placeholderOption);
+
+                    suggestionsCache.forEach(item => {
+                        const option = document.createElement('option');
+                        option.value = item.workname;
+                        option.textContent = `${item.code}: ${item.workname}`;
+                        option.dataset.code = item.code;
+                        option.dataset.bookname = item.bookname;
+                        worknameSelect.appendChild(option);
+                    });
+                    isWorknameSelectShowingMessage = false; // 候補表示モードへ変更
+                }
+            }
+
+            worknameSelect.addEventListener('mousedown', expandWorknameOptions);
+            worknameSelect.addEventListener('focus', expandWorknameOptions); // キーボード操作対応
+
+
             worknameSelect.addEventListener('change', () => {
+                if (isWorknameSelectShowingMessage) return;
+
                 const selectedOption = worknameSelect.options[worknameSelect.selectedIndex];
-                if (selectedOption) {
-                    workcdInput.value = selectedOption.dataset.code; // Update workcd with selected one
-                    worknameInput.value = selectedOption.value;      // Update read-only field with selected name
-                    worknameInput.dataset.showingCount = 'false';
-                    booknameInput.value = selectedOption.dataset.bookname;
-                    // The listbox remains visible after selection
+                if (selectedOption && selectedOption.value) {
+                    // workcdInput.value = selectedOption.dataset.code; // 必要であれば作業コードも更新
+                    booknameInput.value = selectedOption.dataset.bookname || "";
+                } else {
+                    booknameInput.value = ""; // 「選択してください」などが選ばれた場合
                 }
             });
 
-            // Debounced function to fetch suggestions based on workcd input
             const fetchAndFill = debounce(() => {
                 const code = workcdInput.value.trim();
+                worknameSelect.innerHTML = ''; // 事前にクリア
+                suggestionsCache = [];       // キャッシュもクリア
+
                 if (code.length < 3) {
-                    worknameInput.value = '';
-                    worknameInput.placeholder = "作業コードを3桁以上入力してください";
-                    worknameInput.dataset.showingCount = 'false';
-                    worknameSelect.innerHTML = '';
                     worknameSelect.style.display = 'none';
-                    worknameSelect.value = '';
                     booknameInput.value = '';
+                    isWorknameSelectShowingMessage = true; // フラグをリセット
                     return;
                 }
 
-                worknameInput.value = '検索中...';
-                worknameSelect.style.display = 'none'; // Hide while searching
+                populateWorknameSelectWithMessage('検索中...');
 
                 fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
                     .then(response => response.json())
                     .then(data => {
-                        const suggestions = data.worknames || [];
-                        if (suggestions.length === 1) {
-                            const item = suggestions[0];
-                            // workcdInput.value = item.code; // Keep user's input or update if preferred
-                            worknameInput.value = item.workname; // Display the single found item
-                            booknameInput.value = item.bookname;
-                            worknameInput.dataset.showingCount = 'false';
-
-                            worknameSelect.innerHTML = ''; // Clear previous options
-                            const option = document.createElement('option');
-                            option.value = item.workname;
-                            option.textContent = `${item.code}: ${item.workname}`;
-                            option.dataset.code = item.code;
-                            option.dataset.bookname = item.bookname;
-                            worknameSelect.appendChild(option);
-                            worknameSelect.value = item.workname; // Auto-select the single item
-                            worknameSelect.style.display = 'block'; // Show the listbox with the single item
+                        suggestionsCache = data.worknames || [];
+                        if (suggestionsCache.length > 0) {
+                            populateWorknameSelectWithMessage(`${suggestionsCache.length}件の候補。クリック/タップして選択`);
                         } else {
-                            handleSuggestions(suggestions); // Handles multiple or zero suggestions
+                            populateWorknameSelectWithMessage('該当する品名がありません');
                         }
                     })
                     .catch(error => {
                         console.error('Error fetching worknames:', error);
-                        worknameInput.value = 'エラーが発生しました';
-                        worknameInput.dataset.showingCount = 'false';
-                        worknameSelect.innerHTML = '';
-                        worknameSelect.style.display = 'none';
-                        worknameSelect.value = '';
-                        booknameInput.value = '';
+                        populateWorknameSelectWithMessage('エラーが発生しました', true);
                     });
-            }, 300); // 300ms debounce delay
+            }, 300);
 
-            // Trigger fetchAndFill when the workcd input changes
             workcdInput.addEventListener('input', fetchAndFill);
 
-            // --- Other Event Listeners ---
-
+            // --- Other Event Listeners (変更なし) ---
             viewBtn.addEventListener('click', () => {
                 const pid  = document.getElementById('personid').value;
                 const date = workdayInput.value;
@@ -336,7 +314,7 @@
             });
 
             const form = document.querySelector('form');
-            const submitBtn  = document.getElementById('submitButton');
+            const submitBtn = document.getElementById('submitButton');
             form.addEventListener('submit', () => {
                 submitBtn.textContent = '送信中...';
                 submitBtn.disabled = true;
