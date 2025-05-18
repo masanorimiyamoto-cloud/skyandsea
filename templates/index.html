@@ -76,7 +76,6 @@
             margin-bottom: 10px;
         }
 
-        /* worknameSelect は JS で表示/非表示を制御 */
         #worknameSelect {
             font-size: 18px;
             max-height: 200px; /* 候補リストの最大高さ */
@@ -85,7 +84,7 @@
             border-radius: 5px;
             width: 100%;
             margin-top: 5px; /* 品名フィールドの下にスペースを空ける */
-            display: none;  /* 初期は非表示 */
+            /* display: none;  JaveScriptで制御するため、ここでの指定は削除またはコメントアウト */
         }
         #worknameSelect option {
             padding: 8px;
@@ -99,7 +98,7 @@
         #worknameInput[data-showing-count="true"] {
             color: #007bff;
             font-style: italic;
-            cursor: pointer; /* クリックできることを示唆 */
+            /* cursor: pointer;  クリック操作は不要になるため削除 */
         }
     </style>
 </head>
@@ -139,7 +138,7 @@
             <input type="text" id="workcd" name="workcd" placeholder="3桁以上入力" required>
 
             <label for="worknameInput">📚 品名:</label>
-            <input type="text" id="worknameInput" readonly placeholder="作業コードを入力すると表示" data-showing-count="false">
+            <input type="text" id="worknameInput" readonly placeholder="作業コードを3桁以上入力してください" data-showing-count="false">
             <input type="hidden" id="booknameInput" name="bookname">
             <select id="worknameSelect" name="workname" size="5"></select>
 
@@ -178,19 +177,17 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const workcdInput     = document.getElementById('workcd');
-            const worknameInput   = document.getElementById('worknameInput'); // Read-only display
+            const worknameInput   = document.getElementById('worknameInput'); // Read-only display for status/selection
             const booknameInput   = document.getElementById('booknameInput'); // Hidden bookname
-            const worknameSelect  = document.getElementById('worknameSelect'); // Select for suggestions (submits workname)
+            const worknameSelect  = document.getElementById('worknameSelect'); // Select for suggestions
             const workprocessSel  = document.getElementById('workprocess');
             const unitpriceInput  = document.getElementById('unitprice');
             const workdayInput    = document.getElementById('workday');
             const viewBtn         = document.getElementById('viewRecordsButton');
 
+            worknameSelect.style.display = 'none'; // Initially hide the select list
+
             // --- Initial scroll for highlighted row (if any) ---
-            // This part seems intended for a different page/view displaying records.
-            // It might not be strictly necessary or functional on the input form page itself
-            // unless the flash messages somehow trigger a highlight on a linked records view.
-            // Keeping it as it was in the original code.
             const highlightedRow = document.querySelector('tr.highlighted');
             if (highlightedRow) {
                 highlightedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -201,125 +198,92 @@
                 worknameSelect.innerHTML = ''; // Clear previous suggestions
                 if (suggestions.length === 0) {
                     worknameInput.value = '見つかりません';
-                    worknameInput.dataset.showingCount = 'false'; // Not showing count
+                    worknameInput.dataset.showingCount = 'false';
                     worknameSelect.style.display = 'none'; // Hide the select
-                    // Ensure the select value is clear so nothing unexpected is submitted
                     worknameSelect.value = '';
-                    booknameInput.value = ''; // Clear bookname
+                    booknameInput.value = '';
                     return;
                 }
 
-                // Populate the select element with suggestions
                 suggestions.forEach(item => {
                     const option = document.createElement('option');
-                    option.value = item.workname; // The value sent on form submission
-                    option.textContent = `${item.code}: ${item.workname}`; // Display text
-                    option.dataset.code = item.code; // Store code for potential future use
-                    option.dataset.bookname = item.bookname; // Store bookname
+                    option.value = item.workname;
+                    option.textContent = `${item.code}: ${item.workname}`;
+                    option.dataset.code = item.code;
+                    option.dataset.bookname = item.bookname;
                     worknameSelect.appendChild(option);
                 });
 
-                // Update the read-only input to show the count
-                worknameInput.value = `${suggestions.length}件見つかりました`;
-                worknameInput.dataset.showingCount = 'true'; // Indicate count is shown
-                // Clear the select value until an item is explicitly chosen
-                worknameSelect.value = '';
-                booknameInput.value = ''; // Clear bookname until selected
-                // Keep the select hidden initially, it will be shown on click
+                worknameInput.value = `${suggestions.length}件の候補があります`;
+                worknameInput.dataset.showingCount = 'true';
+                worknameSelect.value = ''; // Clear previous selection, let user choose
+                booknameInput.value = '';
+                worknameSelect.style.display = 'block'; // Show the select list
             }
 
             // --- Event Listeners ---
 
-            // Show the select listbox when the worknameInput (showing count) is clicked
-            worknameInput.addEventListener('click', () => {
-                if (worknameInput.dataset.showingCount === 'true' && worknameSelect.options.length > 0) {
-                    worknameSelect.style.display = 'block'; // Show the select list
-                } else {
-                     worknameSelect.style.display = 'none'; // Hide if no suggestions or not showing count
-                }
-            });
-
-             // Hide the select listbox when clicking outside (optional but good UX)
-             // Add a general click listener to the body or document
-             document.addEventListener('click', (event) => {
-                const isClickInsideWorknameArea = worknameInput.contains(event.target) || worknameSelect.contains(event.target);
-                if (!isClickInsideWorknameArea) {
-                    worknameSelect.style.display = 'none';
-                }
-             });
-
-
             // Handle selection from the worknameSelect listbox
             worknameSelect.addEventListener('change', () => {
                 const selectedOption = worknameSelect.options[worknameSelect.selectedIndex];
-                // Update the workcd input field with the selected code
-                workcdInput.value = selectedOption.dataset.code;
-                // Update the read-only workname input field with the selected workname
-                worknameInput.value = selectedOption.value;
-                worknameInput.dataset.showingCount = 'false'; // No longer showing count
-                // Update the hidden bookname input field
-                booknameInput.value = selectedOption.dataset.bookname;
-                // Hide the select listbox
-                worknameSelect.style.display = 'none';
-                // The worknameSelect element itself now holds the correct value for form submission
+                if (selectedOption) {
+                    workcdInput.value = selectedOption.dataset.code; // Update workcd with selected one
+                    worknameInput.value = selectedOption.value;      // Update read-only field with selected name
+                    worknameInput.dataset.showingCount = 'false';
+                    booknameInput.value = selectedOption.dataset.bookname;
+                    // The listbox remains visible after selection
+                }
             });
 
             // Debounced function to fetch suggestions based on workcd input
             const fetchAndFill = debounce(() => {
                 const code = workcdInput.value.trim();
-                // Only fetch if code is at least 3 characters
                 if (code.length < 3) {
                     worknameInput.value = '';
+                    worknameInput.placeholder = "作業コードを3桁以上入力してください";
                     worknameInput.dataset.showingCount = 'false';
-                    worknameSelect.innerHTML = ''; // Clear options
-                    worknameSelect.style.display = 'none'; // Hide select
-                    worknameSelect.value = ''; // Clear select value
-                    booknameInput.value = ''; // Clear bookname
+                    worknameSelect.innerHTML = '';
+                    worknameSelect.style.display = 'none';
+                    worknameSelect.value = '';
+                    booknameInput.value = '';
                     return;
                 }
 
-                worknameInput.value = '検索中...'; // Show loading state
+                worknameInput.value = '検索中...';
+                worknameSelect.style.display = 'none'; // Hide while searching
 
                 fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
                     .then(response => response.json())
                     .then(data => {
                         const suggestions = data.worknames || [];
                         if (suggestions.length === 1) {
-                            // If only one suggestion, fill inputs directly
                             const item = suggestions[0];
-                            workcdInput.value = item.code;
-                            worknameInput.value = item.workname;
+                            // workcdInput.value = item.code; // Keep user's input or update if preferred
+                            worknameInput.value = item.workname; // Display the single found item
                             booknameInput.value = item.bookname;
-                            worknameInput.dataset.showingCount = 'false'; // Not showing count
-                            worknameSelect.innerHTML = ''; // Clear any old options
-                            worknameSelect.style.display = 'none'; // Ensure select is hidden
-                            // Set the value of the select element so it's submitted correctly
-                            // even if the user didn't interact with the listbox
-                            // Find or create the option and set it as selected
-                            let option = worknameSelect.querySelector(`option[value="${item.workname}"]`);
-                            if (!option) {
-                                option = document.createElement('option');
-                                option.value = item.workname;
-                                option.textContent = `${item.code}: ${item.workname}`;
-                                option.dataset.code = item.code;
-                                option.dataset.bookname = item.bookname;
-                                worknameSelect.appendChild(option);
-                            }
-                             worknameSelect.value = item.workname;
+                            worknameInput.dataset.showingCount = 'false';
 
+                            worknameSelect.innerHTML = ''; // Clear previous options
+                            const option = document.createElement('option');
+                            option.value = item.workname;
+                            option.textContent = `${item.code}: ${item.workname}`;
+                            option.dataset.code = item.code;
+                            option.dataset.bookname = item.bookname;
+                            worknameSelect.appendChild(option);
+                            worknameSelect.value = item.workname; // Auto-select the single item
+                            worknameSelect.style.display = 'block'; // Show the listbox with the single item
                         } else {
-                            // If multiple suggestions, handle with listbox
-                            handleSuggestions(suggestions);
+                            handleSuggestions(suggestions); // Handles multiple or zero suggestions
                         }
                     })
                     .catch(error => {
                         console.error('Error fetching worknames:', error);
-                        worknameInput.value = 'エラー';
+                        worknameInput.value = 'エラーが発生しました';
                         worknameInput.dataset.showingCount = 'false';
-                        worknameSelect.innerHTML = ''; // Clear options on error
-                        worknameSelect.style.display = 'none'; // Hide select on error
-                         worknameSelect.value = ''; // Clear select value
-                        booknameInput.value = ''; // Clear bookname on error
+                        worknameSelect.innerHTML = '';
+                        worknameSelect.style.display = 'none';
+                        worknameSelect.value = '';
+                        booknameInput.value = '';
                     });
             }, 300); // 300ms debounce delay
 
@@ -328,7 +292,6 @@
 
             // --- Other Event Listeners ---
 
-            // Button to view records - navigates to a different page
             viewBtn.addEventListener('click', () => {
                 const pid  = document.getElementById('personid').value;
                 const date = workdayInput.value;
@@ -340,36 +303,31 @@
                 window.location.href = `/records/${year}/${month}?personid=${pid}`;
             });
 
-            // Load last saved workday from local storage
             const lastDay = localStorage.getItem('lastWorkDay');
             if (lastDay) {
-                 workdayInput.value = lastDay;
+                workdayInput.value = lastDay;
             } else {
-                 // Set default to today if no last day saved
-                 const today = new Date();
-                 const yyyy = today.getFullYear();
-                 const mm = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-                 const dd = String(today.getDate()).padStart(2, '0');
-                 workdayInput.value = `${yyyy}-${mm}-${dd}`;
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                workdayInput.value = `${yyyy}-${mm}-${dd}`;
             }
 
-
-            // Save workday to local storage whenever it changes
             workdayInput.addEventListener('change', () => {
                 localStorage.setItem('lastWorkDay', workdayInput.value);
             });
 
-            // Fetch and fill unit price based on selected work process
             workprocessSel.addEventListener('change', () => {
                 const selectedProcess = workprocessSel.value;
                 if (!selectedProcess) {
-                    unitpriceInput.value = ''; // Clear if no process selected
+                    unitpriceInput.value = '';
                     return;
                 }
                 fetch(`/get_unitprice?workprocess=${encodeURIComponent(selectedProcess)}`)
                     .then(res => res.json())
                     .then(data => {
-                        unitpriceInput.value = data.unitprice || ''; // Fill unit price or clear if not found
+                        unitpriceInput.value = data.unitprice || '';
                     })
                     .catch(error => {
                         console.error('Error fetching unit price:', error);
@@ -377,7 +335,6 @@
                     });
             });
 
-            // Disable submit button on form submission to prevent double submission
             const form = document.querySelector('form');
             const submitBtn  = document.getElementById('submitButton');
             form.addEventListener('submit', () => {
@@ -385,50 +342,26 @@
                 submitBtn.disabled = true;
             });
 
-            // --- Scroll to highlighted row (again, likely for a records view) ---
-            // This function attempts to scroll a highlighted table row into view.
-            // It's included here as it was in the original script block.
             function scrollToHighlightedRow() {
                 const row = document.querySelector('tr.highlighted');
                 if (!row) return;
-
-                // Find a scrollable parent container or use the window
                 let container = row.parentElement;
                 while (container && container !== document.body && container !== document.documentElement) {
                     const style = getComputedStyle(container);
                     if (/(auto|scroll)/.test(style.overflowY)) break;
                     container = container.parentElement;
                 }
-
-                const scrollOptions = {
-                    behavior: 'smooth',
-                    block: 'center' // Scroll the element to the center of the viewport/container
-                };
-
-                 if (container && (container === document.body || container === document.documentElement)) {
-                    // Scroll the window if no specific scrollable container found
-                    console.log('Direct window scroll');
-                     row.scrollIntoView(scrollOptions);
-                 } else if (container) {
-                    // Scroll the specific container
-                    console.log('Container scroll');
-                     const rowRect = row.getBoundingClientRect();
-                     const containerRect = container.getBoundingClientRect();
-                     // Calculate the scroll position to bring the row to the center
-                     const offset = rowRect.top - containerRect.top - (container.clientHeight / 2) + (rowRect.height / 2);
-
-                     container.scrollTo({
-                         top: container.scrollTop + offset,
-                         behavior: 'smooth'
-                     });
-                 }
+                const scrollOptions = { behavior: 'smooth', block: 'center' };
+                if (container && (container === document.body || container === document.documentElement)) {
+                    row.scrollIntoView(scrollOptions);
+                } else if (container) {
+                    const rowRect = row.getBoundingClientRect();
+                    const containerRect = container.getBoundingClientRect();
+                    const offset = rowRect.top - containerRect.top - (container.clientHeight / 2) + (rowRect.height / 2);
+                    container.scrollTo({ top: container.scrollTop + offset, behavior: 'smooth' });
+                }
             }
-
-
-            // Execute scroll on DOM load and potentially after page fully loads
-            // (Note: load event might not fire in SPAs or on simple DOM changes)
-            scrollToHighlightedRow(); // Initial call on DOMContentLoaded
-
+            scrollToHighlightedRow();
         });
     </script>
 </body>
