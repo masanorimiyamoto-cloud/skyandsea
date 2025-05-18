@@ -220,14 +220,18 @@
             worknameSelect.addEventListener('click', expandWorknameOptions);
 
             worknameSelect.addEventListener('change', () => {
-                if (isWorknameSelectShowingMessage) return;
-                const selectedOption = worknameSelect.options[worknameSelect.selectedIndex];
-                if (selectedOption && selectedOption.value) {
-                    booknameInput.value = selectedOption.dataset.bookname || '';
-                } else {
-                    booknameInput.value = '';
-                }
-            });
+              if (isWorknameSelectShowingMessage) return;
+              
+              const selectedOption = worknameSelect.options[worknameSelect.selectedIndex];
+              if (selectedOption && selectedOption.value) {
+                  // ここにworkcdを更新する処理を追加
+                  workcdInput.value = selectedOption.dataset.code || workcdInput.value;
+                  booknameInput.value = selectedOption.dataset.bookname || "";
+              } else {
+                  workcdInput.value = workcdInput.value; // 既存の値を維持
+                  booknameInput.value = "";
+              }
+          });
 
             const fetchAndFill = debounce(() => {
                 const code = workcdInput.value.trim();
