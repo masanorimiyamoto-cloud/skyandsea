@@ -500,6 +500,9 @@ def records(year=None, month=None):
     
     new_record_id = session.pop('new_record_id', None)
     edited_record_id = session.pop('edited_record_id', None)  # この行を追加
+    # ↓ この2行を追加 ↓
+    print(f"DEBUG: new_record_id from session: {new_record_id}")
+    print(f"DEBUG: edited_record_id from session: {edited_record_id}")
     return render_template(
         "records.html",
         records=records_data,
