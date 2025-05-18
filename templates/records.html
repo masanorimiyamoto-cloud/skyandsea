@@ -307,24 +307,29 @@
         const newId    = "{{ new_record_id }}";
         const editId   = "{{ edited_record_id }}";
         const targetId = editId || newId;
+
         if (targetId) {
             const row = document.getElementById(`record-${targetId}`);
             if (row) {
-                setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+                // 遅延時間を長くしてみる (例: 300ms または 500ms)
+                setTimeout(() => {
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // デバッグ用にスクロール実行後、コンテナのスクロール位置を確認するのも有効
+                    const tableContainer = document.querySelector('.table-container');
+                    if (tableContainer) {
+                        console.log("Table container scrollTop after scroll:", tableContainer.scrollTop);
+                    }
+                }, 300); // ここを 300 や 500 に変更
+            } else {
+                console.log("Target row not found with ID:", `record-${targetId}`); // 要素が見つからない場合をログ出力
             }
+        } else {
+            console.log("No targetId for scrolling."); // targetId がない場合をログ出力
         }
 
-        const flashMessagesContainer = document.getElementById('flash-messages-container');
-        if (flashMessagesContainer && flashMessagesContainer.children.length > 0) {
-            setTimeout(() => {
-                flashMessagesContainer.style.transition = 'opacity 1s ease';
-                flashMessagesContainer.style.opacity = '0';
-                setTimeout(() => {
-                    flashMessagesContainer.style.display = 'none';
-                }, 1000);
-            }, 3000); // 3秒後に消し始める
-        }
+        // ... (フラッシュメッセージ消去のコード)
     });
+
     </script>
 </body>
 </html>
