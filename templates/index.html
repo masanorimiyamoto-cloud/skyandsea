@@ -36,13 +36,6 @@
             font-size: 20px; /* フォーム要素のフォントサイズを統一 */
             box-sizing: border-box;
         }
-        /* 既存のCSSに以下を追加 */
-        #worknameSelect {
-            display: block !important; /* 常に表示する */
-            max-height: 200px; /* 最大高を指定 */
-            overflow-y: auto; /* スクロール可能に */
-            border: 1px solid #007bff; /* 強調表示 */
-        }
         button {
             background-color: #007bff;
             color: white;
@@ -84,23 +77,18 @@
         }
 
         #worknameSelect {
-            /* font-size は input, select, button で共通指定 */
-            /* max-height や overflow-y はドロップダウンの場合ブラウザ標準挙動 */
-            border: 1px solid #ccc; /* 他のinput/selectとスタイルを合わせる */
-            /* border: 2px solid #007bff; */ /* 強調する場合はこちらでも可 */
+            border: 1px solid #ccc;
             border-radius: 5px;
             width: 100%;
             margin-top: 5px;
         }
         #worknameSelect option {
-            padding: 8px; /* optionのpaddingはブラウザにより解釈が異なる場合あり */
+            padding: 8px;
             border-bottom: 1px solid #ddd;
         }
         #worknameSelect option:last-child {
             border-bottom: none;
         }
-
-        /* worknameInputに関連するCSSは削除 */
     </style>
 </head>
 <body>
@@ -140,7 +128,9 @@
 
             <label for="worknameSelect">📚 品名:</label>
             <input type="hidden" id="booknameInput" name="bookname">
-            <select id="worknameSelect" name="workname"></select> <label for="workprocess">🛠 行程名:</label>
+            <select id="worknameSelect" name="workname"></select>
+
+            <label for="workprocess">🛠 行程名:</label>
             <select id="workprocess" name="workprocess" required>
                 <option value="">行程名を選択してください</option>
                 {% for item in workprocess_list %}
@@ -182,9 +172,9 @@
             const viewBtn         = document.getElementById('viewRecordsButton');
 
             let suggestionsCache = [];
-            let isWorknameSelectShowingMessage = true; // trueの時、worknameSelectはメッセージ表示中
+            let isWorknameSelectShowingMessage = true;
 
-            worknameSelect.style.display = 'none'; // 初期状態では非表示
+            worknameSelect.style.display = 'none';
 
             const highlightedRow = document.querySelector('tr.highlighted');
             if (highlightedRow) {
@@ -201,66 +191,52 @@
                 worknameSelect.appendChild(option);
                 worknameSelect.style.display = 'block';
                 isWorknameSelectShowingMessage = true;
-                suggestionsCache = []; // メッセージ表示時はキャッシュをクリア
                 booknameInput.value = '';
             }
 
-             function expandWorknameOptions() {
-              if (isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
-                  worknameSelect.innerHTML = '';
-                  
-                  // プレースホルダーオプションを追加
-                  const placeholderOption = document.createElement('option');
-                  placeholderOption.textContent = '品名を選択してください...';
-                  placeholderOption.value = "";
-                  placeholderOption.disabled = true;
-                  placeholderOption.selected = true;
-                  worknameSelect.appendChild(placeholderOption);
+            function expandWorknameOptions() {
+                if (isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
+                    worknameSelect.innerHTML = '';
+                    const placeholderOption = document.createElement('option');
+                    placeholderOption.textContent = '品名を選択してください...';
+                    placeholderOption.value = "";
+                    placeholderOption.selected = true;
+                    worknameSelect.appendChild(placeholderOption);
 
-                  // 候補を追加
-                  suggestionsCache.forEach(item => {
-                      const option = document.createElement('option');
-                      option.value = item.workname;
-                      option.textContent = `${item.code}: ${item.workname}`;
-                      option.dataset.code = item.code;
-                      option.dataset.bookname = item.bookname;
-                      worknameSelect.appendChild(option);
-                  });
-
-                  isWorknameSelectShowingMessage = false;
-                  
-                  // ドロップダウンを展開する
-                  worknameSelect.size = suggestionsCache.length + 1 > 5 ? 5 : suggestionsCache.length + 1;
-                  worknameSelect.focus();
-              }
-          }
-
+                    suggestionsCache.forEach(item => {
+                        const opt = document.createElement('option');
+                        opt.value = item.workname;
+                        opt.textContent = `${item.code}: ${item.workname}`;
+                        opt.dataset.code = item.code;
+                        opt.dataset.bookname = item.bookname;
+                        worknameSelect.appendChild(opt);
+                    });
+                    isWorknameSelectShowingMessage = false;
+                }
+            }
 
             worknameSelect.addEventListener('mousedown', expandWorknameOptions);
-            worknameSelect.addEventListener('focus', expandWorknameOptions); // キーボード操作対応
-
+            worknameSelect.addEventListener('focus', expandWorknameOptions);
+            worknameSelect.addEventListener('click', expandWorknameOptions);
 
             worknameSelect.addEventListener('change', () => {
                 if (isWorknameSelectShowingMessage) return;
-
                 const selectedOption = worknameSelect.options[worknameSelect.selectedIndex];
                 if (selectedOption && selectedOption.value) {
-                    // workcdInput.value = selectedOption.dataset.code; // 必要であれば作業コードも更新
-                    booknameInput.value = selectedOption.dataset.bookname || "";
+                    booknameInput.value = selectedOption.dataset.bookname || '';
                 } else {
-                    booknameInput.value = ""; // 「選択してください」などが選ばれた場合
+                    booknameInput.value = '';
                 }
             });
 
             const fetchAndFill = debounce(() => {
                 const code = workcdInput.value.trim();
-                worknameSelect.innerHTML = ''; // 事前にクリア
-                suggestionsCache = [];       // キャッシュもクリア
+                suggestionsCache = [];
 
                 if (code.length < 3) {
                     worknameSelect.style.display = 'none';
                     booknameInput.value = '';
-                    isWorknameSelectShowingMessage = true; // フラグをリセット
+                    isWorknameSelectShowingMessage = true;
                     return;
                 }
 
@@ -284,7 +260,6 @@
 
             workcdInput.addEventListener('input', fetchAndFill);
 
-            // --- Other Event Listeners (変更なし) ---
             viewBtn.addEventListener('click', () => {
                 const pid  = document.getElementById('personid').value;
                 const date = workdayInput.value;
@@ -334,27 +309,6 @@
                 submitBtn.textContent = '送信中...';
                 submitBtn.disabled = true;
             });
-
-            function scrollToHighlightedRow() {
-                const row = document.querySelector('tr.highlighted');
-                if (!row) return;
-                let container = row.parentElement;
-                while (container && container !== document.body && container !== document.documentElement) {
-                    const style = getComputedStyle(container);
-                    if (/(auto|scroll)/.test(style.overflowY)) break;
-                    container = container.parentElement;
-                }
-                const scrollOptions = { behavior: 'smooth', block: 'center' };
-                if (container && (container === document.body || container === document.documentElement)) {
-                    row.scrollIntoView(scrollOptions);
-                } else if (container) {
-                    const rowRect = row.getBoundingClientRect();
-                    const containerRect = container.getBoundingClientRect();
-                    const offset = rowRect.top - containerRect.top - (container.clientHeight / 2) + (rowRect.height / 2);
-                    container.scrollTo({ top: container.scrollTop + offset, behavior: 'smooth' });
-                }
-            }
-            scrollToHighlightedRow();
         });
     </script>
 </body>
