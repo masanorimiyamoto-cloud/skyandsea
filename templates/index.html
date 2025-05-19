@@ -77,10 +77,20 @@
         }
 
         #worknameSelect {
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            width: 100%;
-            margin-top: 5px;
+        display: block !important;
+        max-height: 200px;
+        overflow-y: auto;
+        border: 2px solid #007bff;
+        transition: border-color 0.3s ease;
+        }
+
+        #worknameSelect:focus {
+            border-color: #0056b3;
+            outline: none;
+        }
+        #worknameSelect option {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
         }
         #worknameSelect option {
             padding: 8px;
