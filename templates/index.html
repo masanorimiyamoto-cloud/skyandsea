@@ -178,7 +178,7 @@
             // 初期状態では品名セレクトは隠しておく
             worknameSelect.style.display = 'none'; 
             // 初期メッセージを設定（任意）
-             populateWorknameSelectWithMessage('WorkCDを3桁以上入力...');
+             populateWorknameSelectWithMessage('コード番号を3桁以上入力...');
 
 
             // 前回のスクロールコードはrecords.htmlにあるため、ここでは削除またはコメントアウト
@@ -262,7 +262,7 @@
                     booknameInput.value = '';   // 品名入力欄（hidden）をクリア
                     // WorkCD入力欄はそのまま維持
                     isWorknameSelectShowingMessage = true;
-                    populateWorknameSelectWithMessage('WorkCDを3桁以上入力...'); // メッセージ表示
+                    populateWorknameSelectWithMessage('品番コードを3桁以上入力...'); // メッセージ表示
                     return;
                 }
 
