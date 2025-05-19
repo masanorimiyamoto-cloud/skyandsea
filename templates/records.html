@@ -303,33 +303,34 @@
         <br>
     </div>
     <script>
+ 
     document.addEventListener('DOMContentLoaded', function() {
-        const newId    = "{{ new_record_id }}";
-        const editId   = "{{ edited_record_id }}";
-        const targetId = editId || newId;
+      // Jinja: new_record_id／edited_record_id が None のときは空文字列になる
+      const newId  = "{{ new_record_id or '' }}".trim();
+      const editId = "{{ edited_record_id or '' }}".trim();
+      const targetId = editId || newId;
 
-        if (targetId) {
-            const row = document.getElementById(`record-${targetId}`);
-            if (row) {
-                // 遅延時間を長くしてみる (例: 300ms または 500ms)
-                setTimeout(() => {
-                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    // デバッグ用にスクロール実行後、コンテナのスクロール位置を確認するのも有効
-                    const tableContainer = document.querySelector('.table-container');
-                    if (tableContainer) {
-                        console.log("Table container scrollTop after scroll:", tableContainer.scrollTop);
-                    }
-                }, 600); // ここを 300 や 500 に変更
-            } else {
-                console.log("Target row not found with ID:", `record-${targetId}`); // 要素が見つからない場合をログ出力
-            }
-        } else {
-            console.log("No targetId for scrolling."); // targetId がない場合をログ出力
-        }
+      if (!targetId) return;  // どちらも無ければ即終了
 
-        // ... (フラッシュメッセージ消去のコード)
+      // CSS.escape で ID 中の特殊文字にも対応
+      const selector = `#record-${CSS.escape(targetId)}`;
+      const row      = document.querySelector(selector);
+      const container = document.querySelector('.table-container');
+
+      if (row && container) {
+        // 1) scrollIntoView でうまくいかない場合の保険
+        //row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+
+        // 2) 明示的にコンテナをスクロール
+        const topOffset = row.offsetTop - container.clientHeight / 2;
+        container.scrollTo({
+          top: topOffset,
+          behavior: 'smooth'
+        });
+      } else {
+        console.warn('⚠️ highlight row or container not found:', selector, container);
+      }
     });
-
     </script>
 </body>
 </html>
