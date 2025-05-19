@@ -498,11 +498,18 @@ def records(year=None, month=None):
     next_year = first_day_of_next_month.year
     next_month = first_day_of_next_month.month
     
-    new_record_id = session.pop('new_record_id', None)
-    edited_record_id = session.pop('edited_record_id', None)  # この行を追加
-    # ↓ この2行を追加 ↓
-    print(f"DEBUG: new_record_id from session: {new_record_id}")
-    print(f"DEBUG: edited_record_id from session: {edited_record_id}")
+    new_record_id_from_session = session.pop('new_record_id', None) # 変更箇所：変数名を変更して明確化
+    edited_record_id_from_session = session.pop('edited_record_id', None) # 変更箇所：変数名を変更して明確化
+
+    # --- ここにデバッグプリントを追加 ---
+    print(f"--- PYTHON DEBUG IN /records ROUTE ---")
+    print(f"Value of new_record_id_from_session: {new_record_id_from_session}")
+    print(f"Type of new_record_id_from_session: {type(new_record_id_from_session)}")
+    print(f"Value of edited_record_id_from_session: {edited_record_id_from_session}")
+    print(f"Type of edited_record_id_from_session: {type(edited_record_id_from_session)}")
+    print(f"------------------------------------")
+    # --- デバッグプリントここまで ---
+
     return render_template(
         "records.html",
         records=records_data,
