@@ -2,11 +2,10 @@ from flask import (
     Blueprint, render_template, request, flash, redirect, url_for, session, current_app
 )
 from datetime import datetime, date, timedelta
+import json # unitprice_dict_data をJSONとして渡すために必要
 
 # サービスモジュールから必要な関数をインポート
-# data_services.py はプロジェクトルートにあると仮定 (../ は blueprints フォルダから見て一つ上の階層)
 from ..data_services import get_cached_personid_data, get_cached_workprocess_data
-# airtable_service.py もプロジェクトルートにあると仮定
 from ..airtable_service import (
     create_airtable_record,
     get_airtable_records_for_month,
@@ -14,157 +13,105 @@ from ..airtable_service import (
     get_airtable_record_details,
     update_airtable_record_fields
 )
+# 作成したフォームクラスをインポート
+from ..forms import WorkLogForm
+
 
 # UI用 Blueprint を作成
-# template_folder と static_folder は、メインアプリケーションのフォルダを参照するように指定
 ui_bp = Blueprint(
     'ui_bp', __name__,
-    template_folder='../templates',  # プロジェクトルートの templates フォルダ
-    static_folder='../static'      # プロジェクトルートの static フォルダ
+    template_folder='../templates',
+    static_folder='../static'
 )
 
 # -------------------------------
-# Flask のルート (入力フォーム) - 元の "/"
+# Flask のルート (入力フォーム) - "/"
 @ui_bp.route("/", methods=["GET", "POST"])
 def index():
-    personid_dict_data, personid_list_data = get_cached_personid_data()
+    form = WorkLogForm(request.form if request.method == 'POST' else None)
+
+    # --- SelectFieldの選択肢を動的に設定 ---
+    personid_dict_data, _ = get_cached_personid_data() # personid_list_data はバリデーションでは直接使わない
+    form.personid.choices = [("", "PersonIDを選択してください")] + \
+                            [(str(pid), f"{pid} - {pname}") for pid, pname in personid_dict_data.items()]
+
     workprocess_list_data, unitprice_dict_data = get_cached_workprocess_data()
+    form.workprocess.choices = [("", "行程名を選択してください")] + \
+                               [(wp, wp) for wp in workprocess_list_data]
+    # --- 選択肢設定ここまで ---
 
-    if request.method == "POST":
-        selected_personid = request.form.get("personid", "").strip()
-        workcd = request.form.get("workcd", "").strip()
-        workoutput_str = request.form.get("workoutput", "").strip() or "0"
-        workprocess = request.form.get("workprocess", "").strip()
-        workday = request.form.get("workday", "").strip()
-        selected_option = request.form.get("workname", "").strip()
-        bookname_hidden = request.form.get("bookname_hidden", "").strip()
+    if form.validate_on_submit(): # POSTリクエストで、かつバリデーション成功の場合
+        selected_personid = form.personid.data
+        workcd = form.workcd.data
+        workname = form.workname.data         # JavaScriptで設定された品名
+        bookname_val = form.bookname_hidden.data # JavaScriptで設定された書名
+        workprocess = form.workprocess.data
+        workoutput_str = form.workoutput.data # StringFieldなので文字列
+        workday_date = form.workday.data       # DateFieldなのでPythonのdateオブジェクト
 
-
-        workname, bookname_val = "", "" # 変数名を変更
-        error_occurred = False
-
-        if not selected_personid or not selected_personid.isdigit() or int(selected_personid) not in personid_list_data:
-            flash("⚠ 有効な PersonID を選択してください！", "error")
-            error_occurred = True
-        
-        if workcd and not workcd.isdigit():
-            flash("⚠ WorkCD は数値で入力してください！", "error")
-            error_occurred = True
-            
         try:
-            workoutput_val = int(workoutput_str)
+            workoutput_val = int(workoutput_str) # Regexpバリデータで形式チェック済みのはず
         except ValueError:
-            flash("⚠ 数量は数値を入力してください！", "error")
-            error_occurred = True
-            workoutput_val = 0
+            current_app.logger.error(f"UI index POST - WorkOutputの整数変換に失敗(バリデータ後): {workoutput_str}")
+            flash("数量の形式が不正です。", "error")
+            # formオブジェクトにはエラー情報と入力値が保持されている
+            return render_template("index.html", form=form, unitprice_dict_json=json.dumps(unitprice_dict_data))
+
+        # 品番コードが入力されていて、品名が選択されていない場合の追加サーバーサイドバリデーション (任意)
+        if workcd and not workname:
+            # WTFormsのフィールドに直接エラーを追加できる
+            form.workname.errors.append("品番コードを入力した場合、品名も選択してください。")
+            # flash("品番コードを入力した場合は、品名も選択してください。", "warning") # こちらでも可
+            # このエラーがある場合、下の if not form.errors: でキャッチされる
+
+        if not form.errors: # WTFormsのバリデーションエラー + 上記カスタムエラーがなければ
+            unitprice = unitprice_dict_data.get(workprocess, 0.0)
+            workday_str = workday_date.strftime('%Y-%m-%d')
+
+            current_app.logger.info(f"UI index POST (WTForm) - Airtable送信準備: PersonID={selected_personid}")
+            status_code, response_text, new_record_id = create_airtable_record(
+                selected_personid, workcd, workname, bookname_val, workoutput_val, workprocess, unitprice, workday_str
+            )
+
+            flash(response_text, "success" if status_code == 200 and new_record_id else "error")
+            session['selected_personid'] = selected_personid
+            session['workday'] = workday_str # 次回フォーム表示時のデフォルト作業日として保存
+
+            if status_code == 200 and new_record_id:
+                session['new_record_id'] = new_record_id
+                return redirect(url_for(".records", year=workday_date.year, month=workday_date.month))
+            else:
+                # 送信失敗時、エラーメッセージはflashで表示されるので、ここではフォームを再表示
+                # formオブジェクトにはエラー発生前の入力値が保持されている
+                return render_template("index.html", form=form, unitprice_dict_json=json.dumps(unitprice_dict_data))
+        # else: フォームにエラーがある場合は、このブロックの外側で再度フォームがレンダリングされる
+
+    # GETリクエストまたはPOSTでバリデーション失敗時の処理
+    # (form.validate_on_submit() が False だった場合、ここに来る)
+    if request.method == 'GET':
+        # GETリクエストの場合、セッションから前回値をフォームに設定
+        form.personid.data = session.get('selected_personid')
+        session_workday_str = session.get('workday')
+        if session_workday_str:
+            try:
+                form.workday.data = date.fromisoformat(session_workday_str)
+            except (ValueError, TypeError): # 不正な形式やNoneの場合
+                current_app.logger.warning(f"セッションの作業日'{session_workday_str}'のパースに失敗。デフォルト値を使用。")
+                form.workday.data = date.today() - timedelta(days=30)
+        else:
+            form.workday.data = date.today() - timedelta(days=30) # デフォルト
         
-        if not workprocess or not workday:
-            flash("⚠ 行程と作業日は入力してください！", "error")
-            error_occurred = True
-        else:
-            try:
-                datetime.strptime(workday, "%Y-%m-%d")
-            except ValueError:
-                flash("⚠ 作業日はYYYY-MM-DDの形式で入力してください！", "error")
-                error_occurred = True
+        # 他のフィールド(workcd, workoutputなど)はGET時には空で良い。
+        # もしエラーで戻ってきた場合(POSTでバリデーション失敗)、
+        # formオブジェクトは既にユーザーの入力値を保持しているので、ここで再設定は不要。
 
-        if not selected_option and workcd:
-            flash("⚠ WorkCD を入力した場合は WorkName/BookName も選択してください！", "error")
-            error_occurred = True
-        elif selected_option:
-            if "||" in selected_option: # 古い形式の可能性 (現状のJSではworknameのみのはず)
-                workname, bookname_val = selected_option.split("||", 1)
-            else: # JSからはworknameのみが渡される
-                workname = selected_option
-                bookname_val = bookname_hidden # hiddenフィールドから取得
-
-        if error_occurred:
-            current_app.logger.warning(f"UI index POST - 入力エラー: PersonID={selected_personid}, WorkCD={workcd}")
-            return render_template("index.html",
-                                   personid_list=personid_list_data,
-                                   personid_dict=personid_dict_data,
-                                   selected_personid=selected_personid,
-                                   workprocess_list=workprocess_list_data,
-                                   workday=workday,
-                                   workcd=workcd,
-                                   workoutput=workoutput_str,
-                                   workprocess_selected=workprocess,
-                                   selected_workname_option=selected_option, # JSで使わないが念のため
-                                   bookname_hidden=bookname_val,
-                                   unitprice=unitprice_dict_data.get(workprocess, '')
-                                   )
-
-        unitprice = unitprice_dict_data.get(workprocess, 0.0)
-
-        current_app.logger.info(f"UI index POST - Airtableへの送信準備: PersonID={selected_personid}, WorkCD={workcd or 'N/A'}")
-        status_code, response_text, new_record_id = create_airtable_record(
-            selected_personid, workcd, workname, bookname_val, workoutput_val, workprocess, unitprice, workday
-        )
-
-        flash(response_text, "success" if status_code == 200 and new_record_id else "error") # new_record_idもチェック
-        session['selected_personid'] = selected_personid
-        session['workday'] = workday
-
-        if status_code == 200 and new_record_id:
-            session['new_record_id'] = new_record_id
-            try:
-                workday_dt = datetime.strptime(workday, "%Y-%m-%d")
-                return redirect(url_for(".records", year=workday_dt.year, month=workday_dt.month)) # Blueprint内の参照は .ルート名
-            except ValueError:
-                current_app.logger.warning(f"UI index POST - workdayのパース失敗 ({workday})。recordsのデフォルト表示へ。")
-                return redirect(url_for(".records"))
-        else:
-            return render_template("index.html",
-                                   personid_list=personid_list_data,
-                                   personid_dict=personid_dict_data,
-                                   selected_personid=selected_personid,
-                                   workprocess_list=workprocess_list_data,
-                                   workday=workday,
-                                   workcd=workcd,
-                                   workoutput=workoutput_str,
-                                   workprocess_selected=workprocess,
-                                   selected_workname_option=selected_option,
-                                   bookname_hidden=bookname_val,
-                                   unitprice=unitprice_dict_data.get(workprocess, '')
-                                   )
-
-    # GET リクエスト
-    selected_personid_session = session.get('selected_personid', "")
-    session_workday = session.get('workday')
-    if session_workday:
-        try:
-            datetime.strptime(session_workday, "%Y-%m-%d")
-            workday_default = session_workday
-        except ValueError:
-            workday_default = (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")
-            session['workday'] = workday_default
-    else:
-        workday_default = (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")
-    
-    # POSTエラーからの再表示で値が渡されることを考慮
-    form_data = {
-        'workcd': request.form.get('workcd', ''),
-        'workoutput': request.form.get('workoutput', ''),
-        'workprocess_selected': request.form.get('workprocess', ''),
-        'selected_workname_option': request.form.get('workname', ''),
-        'bookname_hidden': request.form.get('bookname_hidden', ''),
-        'unitprice': '' # 単価はJSで設定される
-    }
-    if form_data['workprocess_selected']:
-        form_data['unitprice'] = unitprice_dict_data.get(form_data['workprocess_selected'], '')
+    # 最終的にテンプレートをレンダリング
+    # GETリクエスト、またはPOSTでバリデーションエラーがあった場合にここに来る
+    # formオブジェクトにはエラーメッセージや入力値が含まれている
+    return render_template("index.html", form=form, unitprice_dict_json=json.dumps(unitprice_dict_data))
 
 
-    return render_template("index.html",
-                           workprocess_list=workprocess_list_data,
-                           personid_list=personid_list_data,
-                           personid_dict=personid_dict_data,
-                           selected_personid=selected_personid_session,
-                           workday=workday_default,
-                           **form_data # エラー時などのフォーム値を展開
-                           )
-
-
-# 🆕 **一覧表示のルート (前月・次月機能対応)** - 元の "/records"
+# 🆕 **一覧表示のルート (前月・次月機能対応)**
 @ui_bp.route("/records")
 @ui_bp.route("/records/<int:year>/<int:month>")
 def records(year=None, month=None):
@@ -178,7 +125,7 @@ def records(year=None, month=None):
             else:
                 current_app.logger.warning(f"UI records - 無効なPersonIDがURLパラメータで指定されました: {personid_from_param}")
                 flash("⚠ 無効なPersonIDが指定されました。", "warning")
-                return redirect(url_for(".index")) # Blueprint内の参照
+                return redirect(url_for(".index"))
         except ValueError:
             current_app.logger.warning(f"UI records - PersonIDの形式が無効です (URLパラメータ): {personid_from_param}")
             flash("⚠ PersonIDの形式が無効です。", "warning")
@@ -197,13 +144,13 @@ def records(year=None, month=None):
     default_display_date = today - timedelta(days=30)
 
     if year is None or month is None:
-        selected_workday_from_session = session.get("workday") # indexで保存された作業日を参照
+        selected_workday_from_session = session.get("workday")
         if selected_workday_from_session:
             try:
                 base_date = datetime.strptime(selected_workday_from_session, "%Y-%m-%d").date()
             except ValueError:
                 base_date = default_display_date
-        else: # sessionにworkdayがなければ、現在時刻から計算
+        else:
             base_date = default_display_date
         year = base_date.year
         month = base_date.month
@@ -222,14 +169,15 @@ def records(year=None, month=None):
     display_month_str = f"{year}年{month}月"
     current_app.logger.info(f"UI records - 表示対象月: {display_month_str}, PersonID: {selected_personid}")
 
-    records_data = get_airtable_records_for_month(selected_personid, year, month) # airtable_service を使用
+    records_data = get_airtable_records_for_month(selected_personid, year, month)
 
     total_amount = 0
     for record_item in records_data:
         try:
             unit_price_str = str(record_item.get("UnitPrice", "0")).strip()
             unit_price = float(unit_price_str) if unit_price_str and unit_price_str != "不明" else 0.0
-            work_output = int(record_item.get("WorkOutput", 0))
+            work_output_str = str(record_item.get("WorkOutput", "0")).strip()
+            work_output = int(work_output_str) if work_output_str else 0
             record_item["subtotal"] = unit_price * work_output
         except ValueError:
             current_app.logger.warning(f"UI records - subtotal計算エラー: UnitPrice='{record_item.get('UnitPrice')}', WorkOutput='{record_item.get('WorkOutput')}'")
@@ -259,13 +207,13 @@ def records(year=None, month=None):
     new_record_id_from_session = session.pop('new_record_id', None)
     edited_record_id_from_session = session.pop('edited_record_id', None)
 
-    personid_dict, _ = get_cached_personid_data()
+    personid_dict_data_for_template, _ = get_cached_personid_data()
 
     return render_template(
         "records.html",
         records=records_data,
         personid=selected_personid,
-        personid_dict=personid_dict,
+        personid_dict=personid_dict_data_for_template, # 辞書を渡す
         display_month=display_month_str,
         total_amount=total_amount,
         workdays_count=workdays_count,
@@ -280,7 +228,7 @@ def records(year=None, month=None):
         next_month=next_month
     )
 
-# ✅ レコードの削除 - 元の "/delete_record/<record_id>"
+# ✅ レコードの削除
 @ui_bp.route("/delete_record/<record_id>", methods=["POST"])
 def delete_record(record_id):
     selected_personid = session.get("selected_personid")
@@ -289,7 +237,7 @@ def delete_record(record_id):
         flash("❌ PersonIDが選択されていません。操作を続行できません。", "error")
         return redirect(url_for(".index"))
 
-    success, message = delete_airtable_record(selected_personid, record_id) # airtable_service を使用
+    success, message = delete_airtable_record(selected_personid, record_id)
     flash(message, "success" if success else "error")
 
     try:
@@ -303,7 +251,7 @@ def delete_record(record_id):
     return redirect(url_for(".records", year=year, month=month))
 
 
-# ✅ レコードの修正ページ - 元の "/edit_record/<record_id>"
+# ✅ レコードの修正ページ
 @ui_bp.route("/edit_record/<record_id>", methods=["GET", "POST"])
 def edit_record(record_id):
     selected_personid = session.get("selected_personid")
@@ -312,17 +260,18 @@ def edit_record(record_id):
         flash("❌ PersonIDが選択されていません。操作を続行できません。", "error")
         return redirect(url_for(".index"))
 
-    original_year_str = request.args.get('year', str(session.get('current_display_year', date.today().year)))
-    original_month_str = request.args.get('month', str(session.get('current_display_month', date.today().month)))
-    # yearとmonthを整数に変換（デフォルト値も考慮）
-    try:
-        original_year = int(original_year_str)
-        original_month = int(original_month_str)
-    except ValueError:
-        current_app.logger.warning(f"edit_record GET - 不正な年月パラメータ: year='{original_year_str}', month='{original_month_str}'. デフォルトを使用。")
-        today_date = date.today()
-        original_year = today_date.year
-        original_month = today_date.month
+    # GET時の戻り先年月取得 (現在の表示年月を優先)
+    original_year = session.get('current_display_year', date.today().year)
+    original_month = session.get('current_display_month', date.today().month)
+    # URLパラメータがあればそれで上書き (文字列なので注意)
+    year_from_args = request.args.get('year')
+    month_from_args = request.args.get('month')
+    if year_from_args:
+        try: original_year = int(year_from_args)
+        except ValueError: pass
+    if month_from_args:
+        try: original_month = int(month_from_args)
+        except ValueError: pass
 
 
     if request.method == "POST":
@@ -336,7 +285,6 @@ def edit_record(record_id):
         except ValueError:
             current_app.logger.error(f"UI edit_record POST - WorkOutputの変換に失敗: {new_output_str}")
             flash("❌ 作業量は数値で入力してください。", "error")
-            # エラー時も編集対象のレコードデータを再取得してフォーム表示
             record_data_for_render, error_msg = get_airtable_record_details(selected_personid, record_id)
             if error_msg or record_data_for_render is None:
                 flash(error_msg or "❌ レコード情報の再取得に失敗しました。", "error")
@@ -346,12 +294,8 @@ def edit_record(record_id):
                 original_year=original_year, original_month=original_month
             )
 
-        updated_fields = {
-            "WorkDay": new_day,
-            "WorkOutput": new_output_val
-        }
-        
-        success, message = update_airtable_record_fields(selected_personid, record_id, updated_fields) # airtable_service を使用
+        updated_fields = { "WorkDay": new_day, "WorkOutput": new_output_val }
+        success, message = update_airtable_record_fields(selected_personid, record_id, updated_fields)
 
         if success:
             changes = []
@@ -367,11 +311,11 @@ def edit_record(record_id):
             dt = datetime.strptime(new_day, "%Y-%m-%d")
             return redirect(url_for(".records", year=dt.year, month=dt.month))
         except ValueError:
-            current_app.logger.warning(f"UI edit_record POST - 更新後の日付形式が無効なためデフォルトへリダイレクト: {new_day}")
-            return redirect(url_for(".records", year=original_year, month=original_month)) # 元の年月へ
+            current_app.logger.warning(f"UI edit_record POST - 更新後の日付形式が無効なため元の年月へリダイレクト: {new_day}")
+            return redirect(url_for(".records", year=original_year, month=original_month))
 
     # GET リクエスト時
-    record_data, error_message = get_airtable_record_details(selected_personid, record_id) # airtable_service を使用
+    record_data, error_message = get_airtable_record_details(selected_personid, record_id)
     if error_message or record_data is None:
         flash(error_message or "❌ レコード取得に失敗しました。", "error")
         return redirect(url_for(".records", year=original_year, month=original_month))
@@ -380,6 +324,6 @@ def edit_record(record_id):
         "edit_record.html",
         record=record_data,
         record_id=record_id,
-        original_year=original_year, # 整数で渡す
-        original_month=original_month # 整数で渡す
+        original_year=original_year,
+        original_month=original_month
     )
