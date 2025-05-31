@@ -9,6 +9,10 @@ from datetime import datetime, date, timedelta
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
+#app.secret_key = os.environ.get("FLASK_SECRET_KEY") # FLASK_SECRET_KEY は環境変数名
+# もし環境変数が設定されていない場合のフォールバック（開発時のみ、本番では推奨されない）
+# if not app.secret_key:
+#     app.secret_key = "skyandsea_secretkey2025"
 
 # ✅ Google Sheets 設定
 SERVICE_ACCOUNT_FILE = "configGooglesheet.json"
