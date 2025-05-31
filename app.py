@@ -4,12 +4,53 @@ import gspread
 import json
 import os
 import time
+import logging
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, date, timedelta
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
+#app.secret_key = os.environ.get("FLASK_SECRET_KEY") # FLASK_SECRET_KEY は環境変数名
+# もし環境変数が設定されていない場合のフォールバック（開発時のみ、本番では推奨されない）
+# if not app.secret_key:
+#     app.secret_key = "skyandsea_secretkey2025"
 
+
+# ===== ロギング設定 =====
+# 既存のハンドラをクリアする (Flaskがデフォルトで追加するハンドラとの重複や意図しない動作を避けるため)
+# Python 3.8以降:
+# app.logger.handlers.clear()
+# それ以前のバージョンの場合:
+for handler in app.logger.handlers[:]:
+    app.logger.removeHandler(handler)
+
+# ストリームハンドラを作成 (コンソール=標準エラー出力に出力)
+stream_handler = logging.StreamHandler()
+
+# ログフォーマットを設定
+formatter = logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(module)s:%(lineno)d]'
+    # name を含める場合: '%(asctime)s - %(name)s - %(levelname)s - %(message)s [in %(module)s:%(lineno)d]'
+    # name は通常、app.name (例: 'your_app_name' や '__main__') になります。
+)
+stream_handler.setFormatter(formatter)
+
+# アプリケーションのロガーにハンドラを追加
+app.logger.addHandler(stream_handler)
+
+# アプリケーションのロガーとハンドラのログレベルを設定
+# app.debug が True (開発モード) の場合は DEBUG レベル、そうでなければ INFO レベルに設定
+if app.debug:
+    app.logger.setLevel(logging.DEBUG)
+    stream_handler.setLevel(logging.DEBUG)
+else:
+    app.logger.setLevel(logging.INFO)
+    stream_handler.setLevel(logging.INFO)
+
+app.logger.info("アプリケーションのロギングが初期化されました。")
+# ===== ロギング設定ここまで =====
+
+# ... (以降、ルート定義や他の関数が続く)
 # ✅ Google Sheets 設定
 SERVICE_ACCOUNT_FILE = "configGooglesheet.json"
 SPREADSHEET_NAME = "AirtableTest129"
@@ -84,10 +125,11 @@ def load_workcord_data():
                     workcord_dict[workcord] = []
                 workcord_dict[workcord].append({"workname": workname, "bookname": bookname})
         total_records = sum(len(lst) for lst in workcord_dict.values())
-        print(f"✅ Google Sheets から {total_records} 件の WorkCD/WorkName/BookName レコードをロードしました！")
+        app.logger.info(f"Google Sheets から {len(PERSON_ID_DICT)} 件の PersonID/PersonName レコードをロードしました！")
         last_workcord_load_time = time.time()
     except Exception as e:
-        print(f"⚠ Google Sheets のデータ取得に失敗: {e}")
+        # app.logger.error(f"Google Sheets の PersonID データ取得に失敗: {e}") # エラーメッセージのみ
+        app.logger.exception(f"Google Sheets の PersonID データ取得に失敗:") # エラーメッセージ + スタックトレース
 
 def get_cached_workcord_data():
     if time.time() - last_workcord_load_time > CACHE_TTL:
