@@ -5,8 +5,8 @@ from datetime import datetime, date, timedelta
 import json # unitprice_dict_data をJSONとして渡すために必要
 
 # サービスモジュールから必要な関数をインポート
-from ..data_services import get_cached_personid_data, get_cached_workprocess_data
-from ..airtable_service import (
+from data_services import get_cached_personid_data, get_cached_workprocess_data
+from airtable_service import (
     create_airtable_record,
     get_airtable_records_for_month,
     delete_airtable_record,
@@ -14,7 +14,7 @@ from ..airtable_service import (
     update_airtable_record_fields
 )
 # 作成したフォームクラスをインポート
-from ..forms import WorkLogForm
+from forms import WorkLogForm
 
 
 # UI用 Blueprint を作成
