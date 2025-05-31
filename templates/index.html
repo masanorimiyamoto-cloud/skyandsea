@@ -92,7 +92,7 @@
             padding: 8px;
             border-bottom: 1px solid #ddd;
         }
-        #worknameSelect option {
+        #worknameSelect option { /* 重複定義ですが、元のままにしておきます */
             padding: 8px;
             border-bottom: 1px solid #ddd;
         }
@@ -105,7 +105,7 @@
     <div class="container">
         <div class="header">
             <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="BookSKY Logo" class="logo">
-            <h2>BookSKY_NET 2025.5.27</h2>
+            <h2>BookSKY_NET 2025.5.31</h2>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -134,28 +134,29 @@
             </select>
 
             <label for="workcd">🔍 品番コード:</label>
-            <input type="text" id="workcd" name="workcd" placeholder="3桁以上入力" required>
-
-            <label for="worknameSelect">📚 品名:</label>
-            <input type="hidden" id="booknameInput" name="bookname">
-            <select id="worknameSelect" name="workname"></select>
+            <input type="text" id="workcd" name="workcd" value="{{ workcd if workcd is not none else '' }}" placeholder="3桁以上入力"> <label for="worknameSelect">📚 品名:</label>
+            <input type="hidden" id="booknameInput" name="bookname_hidden" value="{{ bookname_hidden if bookname_hidden is not none else '' }}"> <select id="worknameSelect" name="workname">
+                {% if selected_workname_option %}
+                     <option value="" selected disabled>品番コードを入力してください</option>
+                {% endif %}
+            </select>
 
             <label for="workprocess">🛠 行程名:</label>
             <select id="workprocess" name="workprocess" required>
                 <option value="">行程名を選択してください</option>
                 {% for item in workprocess_list %}
-                    <option value="{{ item }}" {% if item == workprocess %}selected{% endif %}>{{ item }}</option>
+                    <option value="{{ item }}" {% if item == workprocess_selected %}selected{% endif %}>{{ item }}</option>
                 {% endfor %}
             </select>
 
             <label for="unitprice">💰 単価:</label>
-            <input type="text" id="unitprice" name="unitprice" readonly>
+            <input type="text" id="unitprice" name="unitprice" value="{{ unitprice if unitprice is not none else '' }}" readonly>
 
             <label for="workoutput">📦 数量（個、分）:</label>
-            <input type="text" id="workoutput" name="workoutput" required>
+            <input type="text" id="workoutput" name="workoutput" value="{{ workoutput if workoutput is not none else '' }}" required>
 
             <label for="workday">📅 作業日:</label>
-            <input type="date" id="workday" name="workday" required>
+            <input type="date" id="workday" name="workday" value="{{ workday if workday is not none else '' }}" required>
 
             <button type="submit" id="submitButton">送信</button>
         </form>
@@ -164,234 +165,245 @@
     <button id="viewRecordsButton" style="margin-top:15px; font-size:18px;">入力一覧確認</button>
 
     <script>
-        function debounce(fn, wait) {
-            let timer = null;
-            return (...args) => {
-                clearTimeout(timer);
-                timer = setTimeout(() => fn.apply(this, args), wait);
-            };
-        }
+        function debounce(fn, wait) {
+            let timer = null;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), wait);
+            };
+        }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const workcdInput     = document.getElementById('workcd');
-            const booknameInput   = document.getElementById('booknameInput'); // hidden input
-            const worknameSelect  = document.getElementById('worknameSelect'); // select element
-            const workprocessSel  = document.getElementById('workprocess');
-            const unitpriceInput  = document.getElementById('unitprice');
-            const workdayInput    = document.getElementById('workday');
-            const viewBtn         = document.getElementById('viewRecordsButton');
+        document.addEventListener('DOMContentLoaded', () => {
+            const workcdInput     = document.getElementById('workcd');
+            const booknameInput   = document.getElementById('booknameInput'); // hidden input
+            const worknameSelect  = document.getElementById('worknameSelect'); // select element
+            const workprocessSel  = document.getElementById('workprocess');
+            const unitpriceInput  = document.getElementById('unitprice');
+            const workdayInput    = document.getElementById('workday');
+            const viewBtn         = document.getElementById('viewRecordsButton');
 
-            let suggestionsCache = [];
-            // isWorknameSelectShowingMessage は、select が '検索中' や '〇件の候補' といったメッセージを表示している状態かを示すフラグ
-            let isWorknameSelectShowingMessage = true; 
+            let suggestionsCache = [];
+            let isWorknameSelectShowingMessage = true; 
 
-            // 初期状態では品名セレクトは隠しておく
-            worknameSelect.style.display = 'none'; 
-            // 初期メッセージを設定（任意）
-             populateWorknameSelectWithMessage('コード番号を3桁以上入力...');
+            worknameSelect.style.display = 'none'; 
+            populateWorknameSelectWithMessage('品番コードを3桁以上入力...');
+
+            function populateWorknameSelectWithMessage(message, isError = false) {
+                worknameSelect.innerHTML = ''; 
+                const option = document.createElement('option');
+                option.textContent = message;
+                option.value = ""; 
+                option.disabled = true; 
+                option.selected = true; 
+                worknameSelect.appendChild(option);
+                worknameSelect.style.display = 'block'; 
+                isWorknameSelectShowingMessage = true; 
+                booknameInput.value = ''; 
+            }
+
+            function expandWorknameOptions() {
+                if (isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
+                    worknameSelect.innerHTML = ''; 
+                    
+                    const placeholderOption = document.createElement('option');
+                    placeholderOption.textContent = '品名を選択してください...';
+                    placeholderOption.value = "";
+                    placeholderOption.selected = true; 
+                    worknameSelect.appendChild(placeholderOption);
+
+                    suggestionsCache.forEach(item => {
+                        const opt = document.createElement('option');
+                        opt.value = item.workname; 
+                        opt.textContent = `${item.code}: ${item.workname}`; 
+                        opt.dataset.code = item.code; 
+                        opt.dataset.bookname = item.bookname; 
+                        worknameSelect.appendChild(opt);
+                    });
+                    isWorknameSelectShowingMessage = false; 
+                }
+            }
+
+            worknameSelect.addEventListener('mousedown', expandWorknameOptions);
+            worknameSelect.addEventListener('focus', expandWorknameOptions);
+            worknameSelect.addEventListener('click', expandWorknameOptions);
+
+            worknameSelect.addEventListener('change', () => {
+                const selectedOption = worknameSelect.options[worknameSelect.selectedIndex];
+                if (selectedOption && selectedOption.value) {
+                    workcdInput.value = selectedOption.dataset.code || workcdInput.value; 
+                    booknameInput.value = selectedOption.dataset.bookname || ""; 
+                } else {
+                    // workcdInput.value は変更しない（ユーザーの入力値を尊重）
+                    booknameInput.value = ""; 
+                }
+            });
+
+            const fetchAndFill = debounce(() => {
+                const code = workcdInput.value.trim();
+                suggestionsCache = []; 
+
+                if (code.length < 3) {
+                    worknameSelect.style.display = 'none'; 
+                    booknameInput.value = '';   
+                    isWorknameSelectShowingMessage = true;
+                    populateWorknameSelectWithMessage('品番コードを3桁以上入力...'); 
+                    return;
+                }
+
+                populateWorknameSelectWithMessage('検索中...'); 
+                worknameSelect.style.display = 'block'; 
+
+                // ★★★ API呼び出しURLを修正 ★★★
+                fetch(`/api/get_worknames?workcd=${encodeURIComponent(code)}`) 
+                    .then(response => {
+                        // HTTPエラーステータスの場合もJSONを試みる (エラーメッセージがJSONで返る場合があるため)
+                        return response.json().then(data => ({ ok: response.ok, status: response.status, data }));
+                    })
+                    .then(res => {
+                        const { ok, status, data } = res;
+                        suggestionsCache = []; // ここでもクリア（二重だが問題なし）
+
+                        if (data.error && data.error !== "") { // APIが意図したエラーを返した場合 (例: バリデーションエラー)
+                            console.error(`API Error for get_worknames (status ${status}):`, data.error);
+                            populateWorknameSelectWithMessage(data.error, true);
+                        } else if (!ok) { // HTTPエラー (404, 500など) だが、JSONにerrorプロパティがなかった場合
+                             console.error(`HTTP Error for get_worknames: ${status}`);
+                             populateWorknameSelectWithMessage(`サーバーエラー (コード: ${status})`, true);
+                        } else { // 正常なレスポンス
+                            suggestionsCache = data.worknames || [];
+                            if (suggestionsCache.length === 1) {
+                                const item = suggestionsCache[0];
+                                worknameSelect.innerHTML = ''; // クリア
+                                const opt = document.createElement('option');
+                                opt.value = item.workname; 
+                                opt.textContent = `${item.code}: ${item.workname}`; 
+                                opt.dataset.code = item.code; 
+                                opt.dataset.bookname = item.bookname; 
+                                opt.selected = true; 
+                                worknameSelect.appendChild(opt);
+
+                                booknameInput.value = item.bookname || ""; 
+                                workcdInput.value = item.code; // 候補の正確なコードでWorkCD入力欄も更新
+                                isWorknameSelectShowingMessage = false; 
+                                console.log("候補1件につき自動選択:", item);
+
+                            } else if (suggestionsCache.length > 1) {
+                                populateWorknameSelectWithMessage(`${suggestionsCache.length}件の候補。クリック/タップして選択`);
+                            } else {
+                                populateWorknameSelectWithMessage('該当する品名がありません');
+                            }
+                        }
+                        worknameSelect.style.display = 'block'; // 念のため表示
+                    })
+                    .catch(error => { // ネットワークエラーや上記処理中のJavaScriptエラー
+                        console.error('Fetch Error for get_worknames:', error);
+                        populateWorknameSelectWithMessage('通信エラーが発生しました', true);
+                        worknameSelect.style.display = 'block';
+                        booknameInput.value = '';
+                    });
+            }, 300); 
+
+            workcdInput.addEventListener('input', fetchAndFill);
+
+            viewBtn.addEventListener('click', () => {
+                const pid  = document.getElementById('personid').value;
+                const dateStr = workdayInput.value; // dateではなくdateStrなど変数名を変えることを推奨
+                if (!pid) { // 作業日は空でも一覧表示は可能にする（当月表示など）
+                    alert('PersonIDを選択してください');
+                    return;
+                }
+                if (!dateStr && pid) { // PersonIDがあり、作業日がない場合は当月表示などに誘導
+                     window.location.href = `/records?personid=${pid}`; // 年月指定なし
+                     return;
+                }
+                if (dateStr) {
+                    const [year, month] = dateStr.split('-');
+                    window.location.href = `/records/${year}/${month}?personid=${pid}`;
+                } else {
+                    // PersonIDも作業日もなければindexに戻るなど
+                     alert('PersonIDと作業日を選択または入力してください');
+                }
+            });
+
+            const lastDay = localStorage.getItem('lastWorkDay');
+            if (lastDay) {
+                workdayInput.value = lastDay;
+            } else if (!workdayInput.value) { // Python側で値がセットされていない場合のみJSで今日の日付を設定
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                workdayInput.value = `${yyyy}-${mm}-${dd}`;
+            }
+
+            workdayInput.addEventListener('change', () => {
+                localStorage.setItem('lastWorkDay', workdayInput.value);
+            });
+
+            workprocessSel.addEventListener('change', () => {
+                const selectedProcess = workprocessSel.value;
+                if (!selectedProcess) {
+                    unitpriceInput.value = ''; 
+                    return;
+                }
+                // ★★★ API呼び出しURLを修正 ★★★
+                fetch(`/api/get_unitprice?workprocess=${encodeURIComponent(selectedProcess)}`)
+                    .then(response => {
+                        return response.json().then(data => ({ ok: response.ok, status: response.status, data }));
+                    })
+                    .then(res => {
+                        const { ok, status, data } = res;
+                        if (data.error && data.error !== "") {
+                            console.error(`API Error for get_unitprice (status ${status}):`, data.error);
+                            unitpriceInput.value = data.error; 
+                        } else if (!ok) {
+                            console.error(`HTTP Error for get_unitprice: ${status}`);
+                            unitpriceInput.value = `取得エラー (${status})`;
+                        } else {
+                            unitpriceInput.value = data.unitprice !== undefined ? data.unitprice : '';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Fetch Error for get_unitprice:', error);
+                        unitpriceInput.value = '通信エラー';
+                    });
+            });
+
+            const form = document.querySelector('form');
+            const submitBtn = document.getElementById('submitButton');
+            form.addEventListener('submit', () => {
+                // WorkCDが入力されていて、品名が選択されていない（メッセージ表示状態のまま）の場合のバリデーション
+                const workcdVal = workcdInput.value.trim();
+                if (workcdVal.length >=3 && isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
+                    alert('品番コードを入力した場合、品名を選択してください。');
+                    event.preventDefault(); // 送信を中止
+                    return;
+                }
+                if (workcdVal.length >=3 && worknameSelect.value === "") {
+                     alert('品番コードを入力した場合、品名を選択してください。');
+                     event.preventDefault(); // 送信を中止
+                     return;
+                }
 
 
-            // 前回のスクロールコードはrecords.htmlにあるため、ここでは削除またはコメントアウト
-            // const highlightedRow = document.querySelector('tr.highlighted');
-            // if (highlightedRow) {
-            //     highlightedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // }
+                submitBtn.textContent = '送信中...';
+                submitBtn.disabled = true;
+            });
 
-            // 品名セレクトボックスにメッセージを表示するヘルパー関数
-            function populateWorknameSelectWithMessage(message, isError = false) {
-                worknameSelect.innerHTML = ''; // オプションをクリア
-                const option = document.createElement('option');
-                option.textContent = message;
-                option.value = ""; // 値は空
-                option.disabled = true; // 選択不可
-                option.selected = true; // 初期選択状態にする
-                worknameSelect.appendChild(option);
-                worknameSelect.style.display = 'block'; // セレクトを表示
-                isWorknameSelectShowingMessage = true; // メッセージ表示中フラグを立てる
-                booknameInput.value = ''; // 品名入力欄（hidden）をクリア
-                // workcdInput.value はそのまま維持
-            }
+            // ページロード時にフォームにPythonから渡された値があれば、それに基づいて初期API呼び出しを行う
+            // 例: workprocess が初期選択されていれば、unitprice を取得
+            if (workprocessSel.value) {
+                workprocessSel.dispatchEvent(new Event('change'));
+            }
+            // 例: workcd に初期値があり、selected_workname_option もあれば、それを復元する
+            // この部分は複雑になるため、現状ではPOSTエラー時にPython側で selected_workname_option を
+            // 渡すようにしていますが、JSでの復元は省略しています。
+            // もし workcd に値があり、エラーで戻ってきた場合に worknameSelect を再度 populate するなら、
+            // ページロード時に fetchAndFill を一度呼び出すなどの処理が必要になります。
+            // ただし、その場合はデバウンスなしで即時実行するなどの工夫も必要です。
+            // 今回は、URL修正が主目的なので、この部分の複雑なロジック追加は保留します。
 
-            // セレクトボックスがクリック等されたときに、キャッシュされている候補で埋める関数
-            function expandWorknameOptions() {
-                // 現在メッセージ表示中 かつ 候補がキャッシュされている場合 のみ実行
-                if (isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
-                    worknameSelect.innerHTML = ''; // オプションをクリア
-                    
-                    // プレースホルダーオプションを追加
-                    const placeholderOption = document.createElement('option');
-                    placeholderOption.textContent = '品名を選択してください...';
-                    placeholderOption.value = "";
-                    placeholderOption.selected = true; // デフォルト選択
-                    // placeholderOption.disabled = true; // disabledにしても良い
-                    worknameSelect.appendChild(placeholderOption);
-
-                    // キャッシュされた候補をオプションとして追加
-                    suggestionsCache.forEach(item => {
-                        const opt = document.createElement('option');
-                        opt.value = item.workname; // 品名を作業名としてoptionのvalueに設定
-                        opt.textContent = `${item.code}: ${item.workname}`; // 表示はコード: 品名
-                        opt.dataset.code = item.code; // 元のWorkCDをdata属性に保存
-                        opt.dataset.bookname = item.bookname; // BookNameをdata属性に保存
-                        worknameSelect.appendChild(opt);
-                    });
-                    isWorknameSelectShowingMessage = false; // これでメッセージ表示状態ではなくなった
-                }
-            }
-
-            // 品名セレクトボックスに対する各種イベントで候補を展開
-            worknameSelect.addEventListener('mousedown', expandWorknameOptions);
-            worknameSelect.addEventListener('focus', expandWorknameOptions);
-            worknameSelect.addEventListener('click', expandWorknameOptions);
-
-            // 品名セレクトボックスの値が変更されたときの処理（ユーザーが選択した場合）
-            worknameSelect.addEventListener('change', () => {
-              // メッセージ表示中にchangeイベントが発生することはないはずだが念のためチェック
-              // if (isWorknameSelectShowingMessage) return; 
-              
-              const selectedOption = worknameSelect.options[worknameSelect.selectedIndex];
-              if (selectedOption && selectedOption.value) {
-                  // 選択されたオプションのdata属性からWorkCDとBookNameを取得して入力欄を更新
-                  workcdInput.value = selectedOption.dataset.code || workcdInput.value; 
-                  booknameInput.value = selectedOption.dataset.bookname || ""; 
-              } else {
-                  // プレースホルダーなどが選択された場合
-                  workcdInput.value = workcdInput.value; // WorkCDは変更しない
-                  booknameInput.value = ""; // BookNameはクリア
-              }
-          });
-
-            // WorkCD入力時の候補取得・表示処理 (Debounce適用)
-            const fetchAndFill = debounce(() => {
-                const code = workcdInput.value.trim();
-                suggestionsCache = []; // 新しい入力ごとにキャッシュをクリア
-
-                // WorkCDが3桁未満の場合は、候補リストを非表示に戻す
-                if (code.length < 3) {
-                    worknameSelect.style.display = 'none'; // セレクトを非表示に
-                    booknameInput.value = '';   // 品名入力欄（hidden）をクリア
-                    // WorkCD入力欄はそのまま維持
-                    isWorknameSelectShowingMessage = true;
-                    populateWorknameSelectWithMessage('品番コードを3桁以上入力...'); // メッセージ表示
-                    return;
-                }
-
-                // WorkCDが3桁以上の場合は、検索中のメッセージを表示しセレクトボックスを表示
-                populateWorknameSelectWithMessage('検索中...'); 
-                worknameSelect.style.display = 'block'; 
-
-                // バックエンドから候補を取得
-                fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        suggestionsCache = data.worknames || []; // 候補リストをキャッシュ
-
-                        worknameSelect.innerHTML = ''; // 現在のオプションをクリア
-
-                        if (suggestionsCache.length === 1) {
-                            // ★ 候補が1件の場合、自動選択する ★
-                            const item = suggestionsCache[0];
-                            const opt = document.createElement('option');
-                            opt.value = item.workname; // 品名を作業名としてoptionのvalueに設定
-                            opt.textContent = `${item.code}: ${item.workname}`; // 表示はコード: 品名
-                            opt.dataset.code = item.code; // 元のWorkCDをdata属性に保存
-                            opt.dataset.bookname = item.bookname; // BookNameをdata属性に保存
-                            opt.selected = true; // このオプションを自動選択
-                            worknameSelect.appendChild(opt);
-
-                            // 品名入力欄（hidden）とWorkCD入力欄を更新
-                            booknameInput.value = item.bookname || ""; 
-                            workcdInput.value = item.code; // 候補の正確なコードでWorkCD入力欄も更新
-
-                            isWorknameSelectShowingMessage = false; // メッセージ表示状態ではない
-                            console.log("候補1件につき自動選択:", item); // デバッグ用ログ
-
-                        } else if (suggestionsCache.length > 1) {
-                            // 候補が複数件の場合
-                            populateWorknameSelectWithMessage(`${suggestionsCache.length}件の候補。クリック/タップして選択`);
-                            isWorknameSelectShowingMessage = true; // メッセージ表示状態
-                            booknameInput.value = ''; // 候補リストが選択されるまではBookNameクリア
-                            // workcdInput.value はユーザーが入力したものを維持（部分一致の場合もあるため）
-
-                        } else {
-                            // 候補が0件の場合
-                            populateWorknameSelectWithMessage('該当する品名がありません');
-                            isWorknameSelectShowingMessage = true; // メッセージ表示状態
-                            booknameInput.value = ''; // BookNameクリア
-                            // workcdInput.value は維持
-
-                        }
-                        // セレクトボックスが非表示だった場合のために表示を保証
-                        worknameSelect.style.display = 'block';
-                    })
-                    .catch(error => {
-                        console.error('Error fetching worknames:', error);
-                        populateWorknameSelectWithMessage('エラーが発生しました', true); // エラーメッセージ表示
-                        worknameSelect.style.display = 'block';
-                        booknameInput.value = '';
-                        // workcdInput.value は維持
-                    });
-            }, 300); // デバウンス時間
-
-            // WorkCD入力欄に変更があったら候補取得処理を実行
-            workcdInput.addEventListener('input', fetchAndFill);
-
-            // 入力一覧確認ボタンのクリックイベント
-            viewBtn.addEventListener('click', () => {
-                const pid  = document.getElementById('personid').value;
-                const date = workdayInput.value;
-                if (!pid || !date) {
-                    alert('PersonIDと作業日を選択してください');
-                    return;
-                }
-                // 作業日から年と月を取得してリダイレクト
-                const [year, month] = date.split('-');
-                window.location.href = `/records/${year}/${month}?personid=${pid}`;
-            });
-
-            // 作業日入力欄の初期値設定とローカルストレージ保存
-            const lastDay = localStorage.getItem('lastWorkDay');
-            if (lastDay) {
-                workdayInput.value = lastDay;
-            } else {
-                const today = new Date();
-                const yyyy = today.getFullYear();
-                const mm = String(today.getMonth() + 1).padStart(2, '0');
-                const dd = String(today.getDate()).padStart(2, '0');
-                workdayInput.value = `${yyyy}-${mm}-${dd}`;
-            }
-
-            workdayInput.addEventListener('change', () => {
-                localStorage.setItem('lastWorkDay', workdayInput.value);
-            });
-
-            // 行程名選択時の単価取得処理
-            workprocessSel.addEventListener('change', () => {
-                const selectedProcess = workprocessSel.value;
-                if (!selectedProcess) {
-                    unitpriceInput.value = ''; // 行程名が選択されなかったら単価をクリア
-                    return;
-                }
-                // バックエンドから単価を取得
-                fetch(`/get_unitprice?workprocess=${encodeURIComponent(selectedProcess)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        unitpriceInput.value = data.unitprice || ''; // 取得した単価を設定
-                    })
-                    .catch(error => {
-                        console.error('Error fetching unit price:', error);
-                        unitpriceInput.value = 'エラー'; // エラー時はエラー表示
-                    });
-            });
-
-            // フォーム送信時のボタン無効化
-            const form = document.querySelector('form');
-            const submitBtn = document.getElementById('submitButton');
-            form.addEventListener('submit', () => {
-                submitBtn.textContent = '送信中...';
-                submitBtn.disabled = true;
-            });
-        });
-    </script>
+        });
+    </script>
 </body>
 </html>
