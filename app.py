@@ -9,10 +9,6 @@ from datetime import datetime, date, timedelta
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
-#app.secret_key = os.environ.get("FLASK_SECRET_KEY") # FLASK_SECRET_KEY は環境変数名
-# もし環境変数が設定されていない場合のフォールバック（開発時のみ、本番では推奨されない）
-# if not app.secret_key:
-#     app.secret_key = "skyandsea_secretkey2025"
 
 # ✅ Google Sheets 設定
 SERVICE_ACCOUNT_FILE = "configGooglesheet.json"
@@ -172,6 +168,17 @@ def get_worknames():
                     })
 
     return jsonify({"worknames": results, "error": ""})
+
+# Flaskのルート例
+@app.route('/records/<year>/<month>')
+def show_records(year, month):
+    # 最新のレコードをハイライト用にマーク
+    records = get_records_from_db()
+    if 'new_id' in request.args:
+        for record in records:
+            if record.id == request.args['new_id']:
+                record.highlight = True
+    return render_template('records.html', records=records)
 
 
 # -------------------------------
