@@ -5,7 +5,9 @@ from datetime import datetime, date, timedelta
 import json # unitprice_dict_data をJSONとして渡すために必要
 
 # サービスモジュールから必要な関数をインポート
+# data_services.py はプロジェクトルートにあると仮定 (../ は blueprints フォルダから見て一つ上の階層)
 from ..data_services import get_cached_personid_data, get_cached_workprocess_data
+# airtable_service.py もプロジェクトルートにあると仮定
 from ..airtable_service import (
     create_airtable_record,
     get_airtable_records_for_month,
