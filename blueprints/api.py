@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request, current_app # current_app をイ�
 # data_services.py から必要な関数をインポート
 # `your_flask_app` は実際のプロジェクトルートフォルダ名に置き換えてください
 # もし `blueprints` フォルダが `data_services.py` と同じ階層の `your_flask_app` 内にある場合
-from ..data_services import get_cached_workcord_data, get_cached_workprocess_data
+from data_services import get_cached_workcord_data, get_cached_workprocess_data
 
 api_bp = Blueprint('api_bp', __name__, url_prefix='/api')
 
