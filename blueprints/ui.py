@@ -1,173 +1,109 @@
 # blueprints/ui.py
+
 from flask import (
     Blueprint, render_template, request, flash, redirect, url_for, session, current_app
 )
 from datetime import datetime, date, timedelta
-import json # Pythonの辞書をJSON文字列としてテンプレートに渡す場合
+import json # ★★★ jsonモジュールをインポート ★★★
 
 # サービスモジュールから必要な関数をインポート
-# data_services.py, airtable_service.py, forms.py はプロジェクトルートにあると仮定
-from data_services import get_cached_personid_data, get_cached_workprocess_data
-from airtable_service import (
-    create_airtable_record,
-    get_airtable_records_for_month,
-    delete_airtable_record,
-    get_airtable_record_details,
-    update_airtable_record_fields
-)
-# from forms import WorkLogForm # Flask-WTF を導入する際にコメントを外します
+from ..data_services import get_cached_personid_data, get_cached_workprocess_data
+from ..airtable_service import create_airtable_record
+# (他のairtable_service関数はindexルートでは直接使わないので省略、必要なら追加)
 
-# UI用 Blueprint を作成
-# template_folder と static_folder は、メインアプリケーションのフォルダを参照するように指定
+# ★★★ 作成したフォームクラスをインポート ★★★
+from ..forms import WorkLogForm
+
+
+# UI用 Blueprint を作成 (変更なし)
 ui_bp = Blueprint(
     'ui_bp', __name__,
-    template_folder='../templates',  # プロジェクトルートの templates フォルダ
-    static_folder='../static'      # プロジェクトルートの static フォルダ
+    template_folder='../templates',
+    static_folder='../static'
 )
 
 # -------------------------------
 # Flask のルート (入力フォーム) - "/"
 @ui_bp.route("/", methods=["GET", "POST"])
 def index():
-    # --- データ読み込み (GET/POST共通) ---
-    # get_cached_workcord_data() # WorkCordデータはAPI経由なのでここでは不要
-    personid_dict_data, personid_list_data = get_cached_personid_data()
+    # ★★★ WorkLogForm のインスタンスを作成 ★★★
+    # POST時はフォームデータから、GET時は空のフォーム（またはデフォルト値を持つフォーム）
+    form = WorkLogForm(request.form if request.method == 'POST' else None)
+
+    # --- SelectFieldの選択肢を動的に設定 ---
+    personid_dict_data, _ = get_cached_personid_data()
+    form.personid.choices = [("", "PersonIDを選択してください")] + \
+                            [(str(pid), f"{pid} - {pname}") for pid, pname in personid_dict_data.items()]
+
     workprocess_list_data, unitprice_dict_data = get_cached_workprocess_data()
-    # error_wp は get_workprocess_data() の返り値の一部でしたが、
-    # get_cached_workprocess_data() はエラーを直接返さないため、ここでは扱いません。
-    # data_services 内のロガーでエラーは記録されます。
+    form.workprocess.choices = [("", "行程名を選択してください")] + \
+                               [(wp, wp) for wp in workprocess_list_data]
+    # --- 選択肢設定ここまで ---
 
-    if request.method == "POST":
-        selected_personid = request.form.get("personid", "").strip()
-        workcd = request.form.get("workcd", "").strip()
-        workoutput = request.form.get("workoutput", "").strip() or "0"
-        workprocess = request.form.get("workprocess", "").strip()
-        workday = request.form.get("workday", "").strip()
-        selected_option = request.form.get("workname", "").strip() # JSからはworknameのみが送られてくる想定
-        bookname_from_hidden = request.form.get("bookname", "").strip() # 元のコードでは 'bookname' で受け取っていた
+    if form.validate_on_submit(): # POSTリクエストで、かつバリデーション成功の場合
+        selected_personid = form.personid.data
+        workcd = form.workcd.data
+        workname = form.workname.data         # JavaScriptで設定された品名
+        bookname_val = form.bookname_hidden.data # JavaScriptで設定された書名
+        workprocess = form.workprocess.data
+        workoutput_str = form.workoutput.data # StringFieldなので文字列
+        workday_date = form.workday.data       # DateFieldなのでPythonのdateオブジェクト
 
-        workname, bookname = "", ""
-        workoutput_val = 0
-        error_occurred = False
-
-        if not selected_personid or not selected_personid.isdigit() or int(selected_personid) not in personid_list_data:
-            flash("⚠ 有効な PersonID を選択してください！", "error")
-            error_occurred = True
-        
-        if workcd and not workcd.isdigit():
-            flash("⚠ WorkCD は数値で入力してください！", "error")
-            error_occurred = True
-            
         try:
-            workoutput_val = int(workoutput)
+            workoutput_val = int(workoutput_str) # Regexpバリデータで形式チェック済み
         except ValueError:
-            flash("⚠ 数量は数値を入力してください！", "error")
-            error_occurred = True
-            workoutput_val = 0 # エラー時のフォールバック
-        
-        if not workprocess or not workday:
-            flash("⚠ 行程と作業日は入力してください！", "error")
-            error_occurred = True
-        else:
+            # このエラーは通常発生しないはずだが、念のため
+            current_app.logger.error(f"UI index POST - WorkOutputの整数変換に失敗(バリデータ後): {workoutput_str}")
+            flash("数量の形式が不正です。", "error")
+            # formオブジェクトにはエラー情報と入力値が保持されている
+            return render_template("index.html", form=form, unitprice_dict_json=json.dumps(unitprice_dict_data))
+
+        # 品番コードが入力されていて、品名が選択されていない場合の追加サーバーサイドバリデーション
+        if workcd and not workname:
+            form.workname.errors.append("品番コードを入力した場合、品名も選択してください。")
+            # このエラーがある場合、下の 'if not form.errors:' には入らず、フォームが再表示される
+
+        if not form.errors: # WTFormsのバリデーションエラー + 上記カスタムエラーがなければ送信処理へ
+            unitprice = unitprice_dict_data.get(workprocess, 0.0)
+            workday_str = workday_date.strftime('%Y-%m-%d')
+
+            current_app.logger.info(f"UI index POST (WTForm) - Airtable送信準備: PersonID={selected_personid}")
+            status_code, response_text, new_record_id = create_airtable_record(
+                selected_personid, workcd, workname, bookname_val, workoutput_val, workprocess, unitprice, workday_str
+            )
+
+            flash(response_text, "success" if status_code == 200 and new_record_id else "error")
+            session['selected_personid'] = selected_personid # 選択されたPersonIDをセッションに保存
+            session['workday'] = workday_str # 入力された作業日をセッションに保存
+
+            if status_code == 200 and new_record_id:
+                session['new_record_id'] = new_record_id
+                return redirect(url_for(".records", year=workday_date.year, month=workday_date.month))
+            else:
+                # 送信失敗時、エラーメッセージはflashで表示される。フォームは入力値を保持して再表示。
+                return render_template("index.html", form=form, unitprice_dict_json=json.dumps(unitprice_dict_data))
+        # else: フォームにエラーがある場合は、このifブロックの外側で再度フォームがレンダリングされる
+
+    # GETリクエスト または POSTでバリデーション失敗時の処理
+    if request.method == 'GET':
+        # GETリクエストの場合、セッションから前回値をフォームのデフォルト値として設定
+        form.personid.process_data(session.get('selected_personid')) # SelectFieldの値を設定
+        session_workday_str = session.get('workday')
+        if session_workday_str:
             try:
-                datetime.strptime(workday, "%Y-%m-%d")
-            except ValueError:
-                flash("⚠ 作業日はYYYY-MM-DDの形式で入力してください！", "error")
-                error_occurred = True
-
-        if not selected_option and workcd:  
-            flash("⚠ WorkCDを入力した場合は品名も選択してください！", "error")
-            error_occurred = True
-        elif selected_option:
-            # JavaScript側で worknameSelect の option の value には workname のみが設定される想定
-            workname = selected_option
-            # bookname は hidden フィールドから取得
-            bookname = bookname_from_hidden
-        
-        if error_occurred:
-            current_app.logger.warning(f"UI index POST - 入力エラー: PersonID={selected_personid}, WorkCD={workcd}")
-            # エラー時も入力値を保持してフォームを再表示
-            # この部分は Flask-WTF 導入時に form オブジェクトを使う形に変わります
-            return render_template("index.html",
-                                   personid_list=personid_list_data,
-                                   personid_dict=personid_dict_data,
-                                   selected_personid=selected_personid,
-                                   workprocess_list=workprocess_list_data,
-                                   unitprice_dict_json=json.dumps(unitprice_dict_data), # JS用
-                                   workday=workday,
-                                   workcd=workcd,
-                                   workoutput=workoutput, # 文字列のまま渡す
-                                   workprocess_selected=workprocess, # workprocessだと予約語と衝突の可能性
-                                   selected_workname_option=selected_option, # 元の値を保持
-                                   bookname_hidden=bookname # hiddenフィールドの値も保持
-                                   )
-
-        unitprice = unitprice_dict_data.get(workprocess, 0.0) # floatで取得
-
-        current_app.logger.info(f"UI index POST - Airtableへの送信準備: PersonID={selected_personid}, WorkCD={workcd or 'N/A'}")
-        status_code, response_text, new_record_id = create_airtable_record(
-            selected_personid, workcd, workname, bookname, workoutput_val, workprocess, unitprice, workday
-        )
-
-        flash(response_text, "success" if status_code == 200 and new_record_id else "error")
-        session['selected_personid'] = selected_personid
-        session['workday'] = workday
-
-        if status_code == 200 and new_record_id:
-            session['new_record_id'] = new_record_id
-            try:
-                workday_dt = datetime.strptime(workday, "%Y-%m-%d")
-                # Blueprint内のルートを参照する場合は先頭にドット '.' をつける
-                return redirect(url_for(".records", year=workday_dt.year, month=workday_dt.month))
-            except ValueError: 
-                current_app.logger.warning(f"UI index POST - workdayのパースに失敗 ({workday})。recordsのデフォルト表示へ。")
-                return redirect(url_for(".records")) 
+                form.workday.data = date.fromisoformat(session_workday_str)
+            except (ValueError, TypeError):
+                current_app.logger.warning(f"セッションの作業日'{session_workday_str}'のパースに失敗。デフォルト値を使用。")
+                form.workday.data = date.today() - timedelta(days=30)
         else:
-            # 送信失敗時も入力値を保持してindex.htmlを再表示
-            return render_template("index.html",
-                                   personid_list=personid_list_data,
-                                   personid_dict=personid_dict_data,
-                                   selected_personid=selected_personid,
-                                   workprocess_list=workprocess_list_data,
-                                   unitprice_dict_json=json.dumps(unitprice_dict_data),
-                                   workday=workday,
-                                   workcd=workcd,
-                                   workoutput=workoutput,
-                                   workprocess_selected=workprocess,
-                                   selected_workname_option=selected_option,
-                                   bookname_hidden=bookname
-                                   )
+            form.workday.data = date.today() - timedelta(days=30) # デフォルト
+        
+        # 他のフィールド(workcd, workoutputなど)はGET時には空で良い。
+        # もしエラーで戻ってきた場合(POSTでバリデーション失敗)、
+        # formオブジェクトは既にユーザーの入力値を保持しているので、ここで再設定は不要。
 
-    # GET リクエスト
-    selected_personid_session = session.get('selected_personid', "")
-    session_workday = session.get('workday')
-
-    if session_workday:
-        try: # セッションの作業日が正しい形式か確認
-            datetime.strptime(session_workday, "%Y-%m-%d")
-            workday_default = session_workday
-        except ValueError:
-            workday_default = (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")
-            session['workday'] = workday_default # 不正な形式なら更新
-    else:
-        workday_default = (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")
-
-    # フォームの初期値を設定（POSTエラーで戻ってきた場合も考慮）
-    # Flask-WTF未導入なので、手動で値を渡す
-    return render_template("index.html",
-                           workprocess_list=workprocess_list_data,
-                           personid_list=personid_list_data, # PersonIDのリストも渡す
-                           personid_dict=personid_dict_data,
-                           selected_personid=selected_personid_session, 
-                           unitprice_dict_json=json.dumps(unitprice_dict_data), # JS用
-                           workday=request.form.get('workday', workday_default), # エラー時はフォームの値を優先
-                           workcd=request.form.get('workcd', ""),
-                           workoutput=request.form.get('workoutput', ""),
-                           workprocess_selected=request.form.get('workprocess', ""),
-                           selected_workname_option=request.form.get('workname', ""),
-                           bookname_hidden=request.form.get('bookname', ""), # 元のコードでは 'bookname'
-                           unitprice="" # 単価はJSで設定される
-                           )
+    # ★★★ 最終的にテンプレートをレンダリング。formオブジェクトと単価辞書を渡す ★★★
+    return render_template("index.html", form=form, unitprice_dict_json=json.dumps(unitprice_dict_data))
 
 
 # 🆕 **一覧表示のルート (前月・次月機能対応)**
