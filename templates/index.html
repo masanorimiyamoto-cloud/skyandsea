@@ -271,7 +271,7 @@
                 worknameSelect.style.display = 'block'; 
 
                 // バックエンドから候補を取得
-                fetch(`/get_worknames?workcd=${encodeURIComponent(code)}`)
+                fetch(`/api/get_worknames?workcd=${encodeURIComponent(code)}`)
                     .then(response => response.json())
                     .then(data => {
                         suggestionsCache = data.worknames || []; // 候補リストをキャッシュ
@@ -363,7 +363,7 @@
                     return;
                 }
                 // バックエンドから単価を取得
-                fetch(`/get_unitprice?workprocess=${encodeURIComponent(selectedProcess)}`)
+                fetch(`/api/get_unitprice?workprocess=${encodeURIComponent(selectedProcess)}`)
                     .then(res => res.json())
                     .then(data => {
                         unitpriceInput.value = data.unitprice || ''; // 取得した単価を設定
