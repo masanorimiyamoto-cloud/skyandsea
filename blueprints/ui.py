@@ -7,8 +7,8 @@ from datetime import datetime, date, timedelta
 import json # ★★★ jsonモジュールをインポート ★★★
 
 # サービスモジュールから必要な関数をインポート
-from ..data_services import get_cached_personid_data, get_cached_workprocess_data
-from ..airtable_service import create_airtable_record
+from data_services import get_cached_personid_data, get_cached_workprocess_data
+from airtable_service import create_airtable_record
 # (他のairtable_service関数はindexルートでは直接使わないので省略、必要なら追加)
 
 # ★★★ 作成したフォームクラスをインポート ★★★
