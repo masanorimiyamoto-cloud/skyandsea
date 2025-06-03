@@ -12,7 +12,7 @@ from airtable_service import create_airtable_record
 # (他のairtable_service関数はindexルートでは直接使わないので省略、必要なら追加)
 
 # ★★★ 作成したフォームクラスをインポート ★★★
-from ..forms import WorkLogForm
+from forms import WorkLogForm
 
 
 # UI用 Blueprint を作成 (変更なし)
