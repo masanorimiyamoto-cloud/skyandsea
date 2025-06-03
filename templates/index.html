@@ -3,44 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Airtable BookSKY_NET (WTForms)</title> <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Airtable BookSKY_NET 先進バージョン</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
     <style>
-        /* ... (既存のCSSはそのまま) ... */
-        .form-field-errors { /* エラーメッセージ表示用のスタイル */
-            list-style-type: none;
-            padding-left: 0;
-            color: red;
-            font-size: 0.9em;
-            margin-top: 2px;
-            margin-bottom: 5px;
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 20px;
         }
-        .form-field-errors li {
-            margin-bottom: 2px;
+        .container {
+            max-width: 400px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: left;
         }
-        label.required::after { /* 必須フィールドのラベルにアスタリスク */
-            content: " *";
-            color: red;
+        label {
+            font-weight: bold;
+            display: block;
+            margin-top: 10px;
         }
-        .form-control { /* WTFormsが生成するinputなどに適用する共通クラス */
+        input, select, button {
             width: 100%;
             padding: 10px;
             margin-top: 5px;
             border: 1px solid #ccc;
             border-radius: 5px;
-            font-size: 20px;
+            font-size: 20px; /* フォーム要素のフォントサイズを統一 */
             box-sizing: border-box;
         }
-        select.form-control { /* selectにも適用 */
-             height: auto; /* selectの高さ調整 */
+        button {
+            background-color: #007bff;
+            color: white;
+            font-size: 18px; /* ボタンのフォントサイズ */
+            border: none;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #submitButton {
+            margin-top: 30px;
+        }
+        .message {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .logo {
+            max-width: 100px;
+            height: auto;
+            margin-bottom: 10px;
         }
 
+        #worknameSelect {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 100%;
+            margin-top: 5px;
+        }
+        #worknameSelect option {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        #worknameSelect option:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="BookSKY Logo" class="logo">
-            <h2>BookSKY_NET (WTForms版)</h2>
+            <h2>BookSKY_先進 2025.6.1</h2>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -50,346 +105,283 @@
                         <p class="{{ category }}">{{ message }}</p>
                     {% endfor %}
                 </div>
+            {% else %}
+                <div id="flash-message">
+                    <p style="color: gray;">新しいデータを入力してください</p>
+                </div>
             {% endif %}
         {% endwith %}
-        <form method="POST" novalidate> {{ form.csrf_token }} <div>
-                {{ form.personid.label(class="required") }} {{ form.personid(class="form-control") }}
-                {% if form.personid.errors %}
-                    <ul class="form-field-errors">
-                        {% for error in form.personid.errors %}<li>{{ error }}</li>{% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
 
-            <div>
-                {{ form.workcd.label }}
-                {{ form.workcd(class="form-control", placeholder="3桁以上入力") }}
-                {% if form.workcd.errors %}
-                    <ul class="form-field-errors">
-                        {% for error in form.workcd.errors %}<li>{{ error }}</li>{% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
+        <form method="POST">
+            <label for="personid">📌 PersonID:</label>
+            <select id="personid" name="personid" required>
+                <option value="">PersonIDを選択してください</option>
+                {% for id, name in personid_dict.items() %}
+                    <option value="{{ id }}" {% if id|string == selected_personid|string %}selected{% endif %}>
+                        {{ id }} - {{ name }}
+                    </option>
+                {% endfor %}
+            </select>
 
-            <div>
-                {{ form.workname.label }}
-                {{ form.bookname_hidden() }} {# HiddenFieldは通常ラベルなし、IDは自動生成 #}
-                {# worknameSelect は手動で配置し、name属性をWTFormsのフィールド名に合わせる #}
-                <select id="worknameSelect" name="workname" class="form-control"></select> 
-                {% if form.workname.errors %}
-                    <ul class="form-field-errors">
-                        {% for error in form.workname.errors %}<li>{{ error }}</li>{% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
-            
-            <div>
-                {{ form.workprocess.label(class="required") }}
-                {{ form.workprocess(class="form-control") }}
-                {% if form.workprocess.errors %}
-                    <ul class="form-field-errors">
-                        {% for error in form.workprocess.errors %}<li>{{ error }}</li>{% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
+            <label for="workcd">🔍 品番コード:</label>
+            <input type="text" id="workcd" name="workcd" placeholder="3桁以上入力" required>
 
-            <div>
-                <label for="unitprice_display">💰 単価:</label> {# 表示専用の単価フィールド #}
-                <input type="text" id="unitprice_display" name="unitprice_display" readonly class="form-control">
-            </div>
+            <label for="worknameSelect">📚 品名:</label>
+            <input type="hidden" id="booknameInput" name="bookname">
+            <select id="worknameSelect" name="workname"></select>
 
-            <div>
-                {{ form.workoutput.label(class="required") }}
-                {{ form.workoutput(class="form-control") }}
-                {% if form.workoutput.errors %}
-                    <ul class="form-field-errors">
-                        {% for error in form.workoutput.errors %}<li>{{ error }}</li>{% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
+            <label for="workprocess">🛠 行程名:</label>
+            <select id="workprocess" name="workprocess" required>
+                <option value="">行程名を選択してください</option>
+                {% for item in workprocess_list %}
+                    <option value="{{ item }}" {% if item == workprocess %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+            </select>
 
-            <div>
-                {{ form.workday.label(class="required") }}
-                {{ form.workday(class="form-control") }}
-                {% if form.workday.errors %}
-                    <ul class="form-field-errors">
-                        {% for error in form.workday.errors %}<li>{{ error }}</li>{% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
-            
-            {{ form.submit(class="btn btn-primary", id="submitButton") }}
+            <label for="unitprice">💰 単価:</label>
+            <input type="text" id="unitprice" name="unitprice" readonly>
+
+            <label for="workoutput">📦 数量（個、分）:</label>
+            <input type="text" id="workoutput" name="workoutput" required>
+
+            <label for="workday">📅 作業日:</label>
+            <input type="date" id="workday" name="workday" required>
+
+            <button type="submit" id="submitButton">送信</button>
         </form>
     </div>
 
     <button id="viewRecordsButton" style="margin-top:15px; font-size:18px;">入力一覧確認</button>
 
     <script>
-        // Pythonから渡された単価辞書データをJavaScriptオブジェクトとしてパース
-        // エスケープ処理に注意: |safe を使うのは、内容を信頼できる場合のみ。
-        // 通常は、JSON文字列をHTMLのdata属性に入れるか、
-        // scriptタグ内でJS変数に代入する際にFlaskのtojsonフィルタを使うのがより安全。
-        // ここでは、unitprice_dict_json が適切にエスケープされたJSON文字列であることを期待。
-        const unitpriceDict = JSON.parse('{{ unitprice_dict_json|tojson|safe if unitprice_dict_json else "{}" }}');
+        function debounce(fn, wait) {
+            let timer = null;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), wait);
+            };
+        }
 
-        function debounce(fn, wait) {
-            let timer = null;
-            return (...args) => {
-                clearTimeout(timer);
-                timer = setTimeout(() => fn.apply(this, args), wait);
-            };
-        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const workcdInput     = document.getElementById('workcd');
+            const booknameInput   = document.getElementById('booknameInput'); // hidden input
+            const worknameSelect  = document.getElementById('worknameSelect'); // select element
+            const workprocessSel  = document.getElementById('workprocess');
+            const unitpriceInput  = document.getElementById('unitprice');
+            const workdayInput    = document.getElementById('workday');
+            const viewBtn         = document.getElementById('viewRecordsButton');
 
-        document.addEventListener('DOMContentLoaded', () => {
-            // WTFormsが生成するIDを優先的に使用 (form.field.id で取得)
-            const workcdInput     = document.getElementById('{{ form.workcd.id }}');
-            const booknameInput   = document.getElementById('{{ form.bookname_hidden.id }}');
-            const worknameSelect  = document.getElementById('worknameSelect'); // HTMLでID固定なのでこのまま
-            const workprocessSel  = document.getElementById('{{ form.workprocess.id }}');
-            const unitpriceInput  = document.getElementById('unitprice_display'); // 表示専用のIDに変更
-            const workdayInput    = document.getElementById('{{ form.workday.id }}');
-            const viewBtn         = document.getElementById('viewRecordsButton');
-            const personidSelect  = document.getElementById('{{ form.personid.id }}');
+            let suggestionsCache = [];
+            // isWorknameSelectShowingMessage は、select が '検索中' や '〇件の候補' といったメッセージを表示している状態かを示すフラグ
+            let isWorknameSelectShowingMessage = true; 
 
-
-            // ページロード時にworkprocessの初期値があれば単価を設定
-            // (formオブジェクトから初期値を取得し、それに基づいて表示する)
-            const initialWorkprocess = workprocessSel.value;
-            if (initialWorkprocess && unitpriceDict[initialWorkprocess] !== undefined) {
-                 unitpriceInput.value = unitpriceDict[initialWorkprocess];
-            }
+            // 初期状態では品名セレクトは隠しておく
+            worknameSelect.style.display = 'none'; 
+            // 初期メッセージを設定（任意）
+             populateWorknameSelectWithMessage('コード番号を3桁以上入力...');
 
 
-            let suggestionsCache = [];
-            let isWorknameSelectShowingMessage = true; 
+            // 前回のスクロールコードはrecords.htmlにあるため、ここでは削除またはコメントアウト
+            // const highlightedRow = document.querySelector('tr.highlighted');
+            // if (highlightedRow) {
+            //     highlightedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // }
 
-            if (!workcdInput.value && workcdInput.placeholder !== "3桁以上入力") { 
-                // 初期値がなく、かつプレースホルダーが表示されていない（つまり一度入力があったかもしれない）場合を考慮
-                // または、単に初期表示
-                worknameSelect.style.display = 'none'; 
-                populateWorknameSelectWithMessage('品番コードを3桁以上入力...');
-            } else if (workcdInput.value.length >= 3) {
-                // ページロード時にworkcdに既に値がある場合 (エラーで戻ってきたなど)
-                // fetchAndFill(); // 即時実行するとAPI負荷。必要なら遅延実行や別のトリガーで。
-                // または、サーバーサイドでエラー時に workname の選択肢も復元できるようにする。
-                // ここでは、初期メッセージを表示し、ユーザーの再操作を促す。
-                populateWorknameSelectWithMessage('品番コード再入力または品名を選択...');
-                worknameSelect.style.display = 'block';
-            } else { // workcdが空または3文字未満
-                worknameSelect.style.display = 'none'; 
-                populateWorknameSelectWithMessage('品番コードを3桁以上入力...');
-            }
+            // 品名セレクトボックスにメッセージを表示するヘルパー関数
+            function populateWorknameSelectWithMessage(message, isError = false) {
+                worknameSelect.innerHTML = ''; // オプションをクリア
+                const option = document.createElement('option');
+                option.textContent = message;
+                option.value = ""; // 値は空
+                option.disabled = true; // 選択不可
+                option.selected = true; // 初期選択状態にする
+                worknameSelect.appendChild(option);
+                worknameSelect.style.display = 'block'; // セレクトを表示
+                isWorknameSelectShowingMessage = true; // メッセージ表示中フラグを立てる
+                booknameInput.value = ''; // 品名入力欄（hidden）をクリア
+                // workcdInput.value はそのまま維持
+            }
 
+            // セレクトボックスがクリック等されたときに、キャッシュされている候補で埋める関数
+            function expandWorknameOptions() {
+                // 現在メッセージ表示中 かつ 候補がキャッシュされている場合 のみ実行
+                if (isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
+                    worknameSelect.innerHTML = ''; // オプションをクリア
+                    
+                    // プレースホルダーオプションを追加
+                    const placeholderOption = document.createElement('option');
+                    placeholderOption.textContent = '品名を選択してください...';
+                    placeholderOption.value = "";
+                    placeholderOption.selected = true; // デフォルト選択
+                    // placeholderOption.disabled = true; // disabledにしても良い
+                    worknameSelect.appendChild(placeholderOption);
 
-            function populateWorknameSelectWithMessage(message, isError = false) {
-                worknameSelect.innerHTML = ''; 
-                const option = document.createElement('option');
-                option.textContent = message;
-                option.value = ""; // メッセージ表示時はvalueを空にする
-                option.disabled = true; 
-                option.selected = true; 
-                worknameSelect.appendChild(option);
-                worknameSelect.style.display = 'block'; 
-                isWorknameSelectShowingMessage = true; 
-                if(booknameInput) booknameInput.value = ''; 
-            }
+                    // キャッシュされた候補をオプションとして追加
+                    suggestionsCache.forEach(item => {
+                        const opt = document.createElement('option');
+                        opt.value = item.workname; // 品名を作業名としてoptionのvalueに設定
+                        opt.textContent = `${item.code}: ${item.workname}`; // 表示はコード: 品名
+                        opt.dataset.code = item.code; // 元のWorkCDをdata属性に保存
+                        opt.dataset.bookname = item.bookname; // BookNameをdata属性に保存
+                        worknameSelect.appendChild(opt);
+                    });
+                    isWorknameSelectShowingMessage = false; // これでメッセージ表示状態ではなくなった
+                }
+            }
 
-            function expandWorknameOptions() {
-                if (isWorknameSelectShowingMessage && suggestionsCache.length > 0) {
-                    worknameSelect.innerHTML = ''; 
-                    const placeholderOption = document.createElement('option');
-                    placeholderOption.textContent = '品名を選択してください...';
-                    placeholderOption.value = ""; // プレースホルダーのvalueも空
-                    placeholderOption.selected = true; 
-                    worknameSelect.appendChild(placeholderOption);
+            // 品名セレクトボックスに対する各種イベントで候補を展開
+            worknameSelect.addEventListener('mousedown', expandWorknameOptions);
+            worknameSelect.addEventListener('focus', expandWorknameOptions);
+            worknameSelect.addEventListener('click', expandWorknameOptions);
 
-                    suggestionsCache.forEach(item => {
-                        const opt = document.createElement('option');
-                        opt.value = item.workname; // WTFormsのStringField 'workname' にこの値が入る
-                        opt.textContent = `${item.code}: ${item.workname} (${item.bookname || '書名なし'})`; 
-                        opt.dataset.code = item.code; 
-                        opt.dataset.bookname = item.bookname; 
-                        worknameSelect.appendChild(opt);
-                    });
-                    isWorknameSelectShowingMessage = false; 
-                }
-            }
+            // 品名セレクトボックスの値が変更されたときの処理（ユーザーが選択した場合）
+            worknameSelect.addEventListener('change', () => {
+              // メッセージ表示中にchangeイベントが発生することはないはずだが念のためチェック
+              // if (isWorknameSelectShowingMessage) return; 
+              
+              const selectedOption = worknameSelect.options[worknameSelect.selectedIndex];
+              if (selectedOption && selectedOption.value) {
+                  // 選択されたオプションのdata属性からWorkCDとBookNameを取得して入力欄を更新
+                  workcdInput.value = selectedOption.dataset.code || workcdInput.value; 
+                  booknameInput.value = selectedOption.dataset.bookname || ""; 
+              } else {
+                  // プレースホルダーなどが選択された場合
+                  workcdInput.value = workcdInput.value; // WorkCDは変更しない
+                  booknameInput.value = ""; // BookNameはクリア
+              }
+          });
 
-            if(worknameSelect) { // 要素が存在する場合のみリスナーを設定
-                worknameSelect.addEventListener('mousedown', expandWorknameOptions);
-                worknameSelect.addEventListener('focus', expandWorknameOptions);
-                worknameSelect.addEventListener('click', expandWorknameOptions);
+            // WorkCD入力時の候補取得・表示処理 (Debounce適用)
+            const fetchAndFill = debounce(() => {
+                const code = workcdInput.value.trim();
+                suggestionsCache = []; // 新しい入力ごとにキャッシュをクリア
 
-                worknameSelect.addEventListener('change', () => {
-                    const selectedOption = worknameSelect.options[worknameSelect.selectedIndex];
-                    if (selectedOption && selectedOption.value) { 
-                        // workcdInput.value = selectedOption.dataset.code || workcdInput.value; // WorkCDはユーザー入力値を尊重
-                        if(booknameInput) booknameInput.value = selectedOption.dataset.bookname || ""; 
-                        // form.workname (StringField) には選択された workname が自動で送信される
-                    } else {
-                        if(booknameInput) booknameInput.value = ""; 
-                    }
-                });
-            }
+                // WorkCDが3桁未満の場合は、候補リストを非表示に戻す
+                if (code.length < 3) {
+                    worknameSelect.style.display = 'none'; // セレクトを非表示に
+                    booknameInput.value = '';   // 品名入力欄（hidden）をクリア
+                    // WorkCD入力欄はそのまま維持
+                    isWorknameSelectShowingMessage = true;
+                    populateWorknameSelectWithMessage('品番コードを3桁以上入力...'); // メッセージ表示
+                    return;
+                }
 
+                // WorkCDが3桁以上の場合は、検索中のメッセージを表示しセレクトボックスを表示
+                populateWorknameSelectWithMessage('検索中...'); 
+                worknameSelect.style.display = 'block'; 
 
-            const fetchAndFill = debounce(() => {
-                if (!workcdInput) return; // workcdInputがなければ何もしない
-                const code = workcdInput.value.trim();
-                suggestionsCache = []; 
+                // バックエンドから候補を取得
+                fetch(`/api/get_worknames?workcd=${encodeURIComponent(code)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        suggestionsCache = data.worknames || []; // 候補リストをキャッシュ
 
-                if (code.length < 3) {
-                    if(worknameSelect) worknameSelect.style.display = 'none'; 
-                    if(booknameInput) booknameInput.value = '';   
-                    isWorknameSelectShowingMessage = true;
-                    populateWorknameSelectWithMessage('品番コードを3桁以上入力...'); 
-                    // フォームの workname フィールドもクリア (name属性で取得)
-                    const formWorknameField = document.getElementsByName("workname")[0];
-                    if (formWorknameField) formWorknameField.value = "";
-                    return;
-                }
+                        worknameSelect.innerHTML = ''; // 現在のオプションをクリア
 
-                populateWorknameSelectWithMessage('検索中...'); 
-                if(worknameSelect) worknameSelect.style.display = 'block'; 
+                        if (suggestionsCache.length === 1) {
+                            // ★ 候補が1件の場合、自動選択する ★
+                            const item = suggestionsCache[0];
+                            const opt = document.createElement('option');
+                            opt.value = item.workname; // 品名を作業名としてoptionのvalueに設定
+                            opt.textContent = `${item.code}: ${item.workname}`; // 表示はコード: 品名
+                            opt.dataset.code = item.code; // 元のWorkCDをdata属性に保存
+                            opt.dataset.bookname = item.bookname; // BookNameをdata属性に保存
+                            opt.selected = true; // このオプションを自動選択
+                            worknameSelect.appendChild(opt);
 
-                fetch(`/api/get_worknames?workcd=${encodeURIComponent(code)}`) 
-                    .then(response => response.json().then(data => ({ ok: response.ok, status: response.status, data })))
-                    .then(res => {
-                        const { ok, status, data } = res;
-                        suggestionsCache = []; 
+                            // 品名入力欄（hidden）とWorkCD入力欄を更新
+                            booknameInput.value = item.bookname || ""; 
+                            workcdInput.value = item.code; // 候補の正確なコードでWorkCD入力欄も更新
 
-                        if (data.error && data.error !== "") {
-                            populateWorknameSelectWithMessage(data.error, true);
-                        } else if (!ok) {
-                             populateWorknameSelectWithMessage(`サーバーエラー (コード: ${status})`, true);
-                        } else {
-                            suggestionsCache = data.worknames || [];
-                            if (suggestionsCache.length === 1) {
-                                const item = suggestionsCache[0];
-                                if(worknameSelect) worknameSelect.innerHTML = ''; 
-                                const opt = document.createElement('option');
-                                opt.value = item.workname; 
-                                opt.textContent = `${item.code}: ${item.workname} (${item.bookname || '書名なし'})`; 
-                                opt.dataset.code = item.code; 
-                                opt.dataset.bookname = item.bookname; 
-                                opt.selected = true; 
-                                if(worknameSelect) worknameSelect.appendChild(opt);
-                                
-                                // 選択された値をフォームフィールドに反映
-                                const formWorknameField = document.getElementsByName("workname")[0];
-                                if(formWorknameField) formWorknameField.value = item.workname;
-                                if(booknameInput) booknameInput.value = item.bookname || "";  
-                                // workcdInput.value = item.code; // 必要ならWorkCDも更新
+                            isWorknameSelectShowingMessage = false; // メッセージ表示状態ではない
+                            console.log("候補1件につき自動選択:", item); // デバッグ用ログ
 
-                                isWorknameSelectShowingMessage = false; 
-                            } else if (suggestionsCache.length > 1) {
-                                populateWorknameSelectWithMessage(`${suggestionsCache.length}件の候補。クリック/タップして選択`);
-                                const formWorknameField = document.getElementsByName("workname")[0];
-                                if (formWorknameField) formWorknameField.value = "";
-                            } else {
-                                populateWorknameSelectWithMessage('該当する品名がありません');
-                                const formWorknameField = document.getElementsByName("workname")[0];
-                                if (formWorknameField) formWorknameField.value = "";
-                            }
-                        }
-                        if(worknameSelect) worknameSelect.style.display = 'block';
-                    })
-                    .catch(error => { 
-                        console.error('Fetch Error for get_worknames:', error);
-                        populateWorknameSelectWithMessage('通信エラーが発生しました', true);
-                        if(worknameSelect) worknameSelect.style.display = 'block';
-                        if(booknameInput) booknameInput.value = '';
-                        const formWorknameField = document.getElementsByName("workname")[0];
-                        if (formWorknameField) formWorknameField.value = "";
-                    });
-            }, 300); 
+                        } else if (suggestionsCache.length > 1) {
+                            // 候補が複数件の場合
+                            populateWorknameSelectWithMessage(`${suggestionsCache.length}件の候補。クリック/タップして選択`);
+                            isWorknameSelectShowingMessage = true; // メッセージ表示状態
+                            booknameInput.value = ''; // 候補リストが選択されるまではBookNameクリア
+                            // workcdInput.value はユーザーが入力したものを維持（部分一致の場合もあるため）
 
-            if (workcdInput) { // workcdInput が存在する場合のみリスナーを設定
-                workcdInput.addEventListener('input', fetchAndFill);
-            }
+                        } else {
+                            // 候補が0件の場合
+                            populateWorknameSelectWithMessage('該当する品名がありません');
+                            isWorknameSelectShowingMessage = true; // メッセージ表示状態
+                            booknameInput.value = ''; // BookNameクリア
+                            // workcdInput.value は維持
 
-            if (viewBtn) { // viewBtn が存在する場合のみリスナーを設定
-                viewBtn.addEventListener('click', () => {
-                    if (!personidSelect || !workdayInput) return;
-                    const pid  = personidSelect.value;
-                    const dateStr = workdayInput.value;
-                    if (!pid) {
-                        alert('PersonIDを選択してください');
-                        return;
-                    }
-                    if (!dateStr && pid) {
-                         window.location.href = `/records?personid=${pid}`;
-                         return;
-                    }
-                    if (dateStr) {
-                        const [year, month] = dateStr.split('-');
-                        window.location.href = `/records/${year}/${month}?personid=${pid}`;
-                    } else {
-                         alert('PersonIDと作業日を選択または入力してください');
-                    }
-                });
-            }
-            
-            if (workdayInput) { // workdayInput が存在する場合のみリスナーを設定
-                const lastDay = localStorage.getItem('lastWorkDay');
-                if (lastDay) {
-                    workdayInput.value = lastDay;
-                } else if (!workdayInput.value) { 
-                    const today = new Date();
-                    const yyyy = today.getFullYear();
-                    const mm = String(today.getMonth() + 1).padStart(2, '0');
-                    const dd = String(today.getDate()).padStart(2, '0');
-                    workdayInput.value = `${yyyy}-${mm}-${dd}`;
-                }
-                workdayInput.addEventListener('change', () => {
-                    localStorage.setItem('lastWorkDay', workdayInput.value);
-                });
-            }
+                        }
+                        // セレクトボックスが非表示だった場合のために表示を保証
+                        worknameSelect.style.display = 'block';
+                    })
+                    .catch(error => {
+                        console.error('Error fetching worknames:', error);
+                        populateWorknameSelectWithMessage('エラーが発生しました', true); // エラーメッセージ表示
+                        worknameSelect.style.display = 'block';
+                        booknameInput.value = '';
+                        // workcdInput.value は維持
+                    });
+            }, 300); // デバウンス時間
 
-            if (workprocessSel) { // workprocessSel が存在する場合のみリスナーを設定
-                workprocessSel.addEventListener('change', () => {
-                    if (!unitpriceInput) return;
-                    const selectedProcess = workprocessSel.value;
-                    if (!selectedProcess) {
-                        unitpriceInput.value = ''; 
-                        return;
-                    }
-                    if (unitpriceDict && unitpriceDict[selectedProcess] !== undefined) {
-                        unitpriceInput.value = unitpriceDict[selectedProcess];
-                    } else {
-                        unitpriceInput.value = '取得中...';
-                         fetch(`/api/get_unitprice?workprocess=${encodeURIComponent(selectedProcess)}`)
-                            .then(response => response.json().then(data => ({ ok: response.ok, status: response.status, data })))
-                            .then(res => { 
-                                const { ok, status, data } = res;
-                                if (data.error && data.error !== "") { unitpriceInput.value = data.error; } 
-                                else if (!ok) { unitpriceInput.value = `取得エラー (${status})`;} 
-                                else { unitpriceInput.value = data.unitprice !== undefined ? data.unitprice : '';}
-                            })
-                            .catch(error => { unitpriceInput.value = '通信エラー'; });
-                    }
-                });
-            }
+            // WorkCD入力欄に変更があったら候補取得処理を実行
+            workcdInput.addEventListener('input', fetchAndFill);
 
-            const formElement = document.querySelector('form'); // formタグは一つと仮定
-            const submitButton = document.getElementById('{{ form.submit.id }}');
-            if (formElement && submitButton) { // 要素が存在する場合のみリスナーを設定
-                formElement.addEventListener('submit', (event) => { 
-                    const workcdVal = workcdInput ? workcdInput.value.trim() : "";
-                    const worknameVal = worknameSelect ? worknameSelect.value : "";
+            // 入力一覧確認ボタンのクリックイベント
+            viewBtn.addEventListener('click', () => {
+                const pid  = document.getElementById('personid').value;
+                const date = workdayInput.value;
+                if (!pid || !date) {
+                    alert('PersonIDと作業日を選択してください');
+                    return;
+                }
+                // 作業日から年と月を取得してリダイレクト
+                const [year, month] = date.split('-');
+                window.location.href = `/records/${year}/${month}?personid=${pid}`;
+            });
 
-                    if (workcdVal.length >=3 && worknameVal === "" && suggestionsCache.length > 0) {
-                        if (isWorknameSelectShowingMessage || (suggestionsCache.length > 0 && worknameSelect.selectedIndex <=0 )) { // メッセージ表示中 or プレースホルダー選択中
-                             alert('品番コードに対応する品名を選択してください。');
-                             event.preventDefault(); 
-                             return;
-                        }
-                    }
-                    submitButton.textContent = '送信中...';
-                    submitButton.disabled = true;
-                });
-            }
-        });
-    </script>
+            // 作業日入力欄の初期値設定とローカルストレージ保存
+            const lastDay = localStorage.getItem('lastWorkDay');
+            if (lastDay) {
+                workdayInput.value = lastDay;
+            } else {
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                workdayInput.value = `${yyyy}-${mm}-${dd}`;
+            }
+
+            workdayInput.addEventListener('change', () => {
+                localStorage.setItem('lastWorkDay', workdayInput.value);
+            });
+
+            // 行程名選択時の単価取得処理
+            workprocessSel.addEventListener('change', () => {
+                const selectedProcess = workprocessSel.value;
+                if (!selectedProcess) {
+                    unitpriceInput.value = ''; // 行程名が選択されなかったら単価をクリア
+                    return;
+                }
+                // バックエンドから単価を取得
+                fetch(`/api/get_unitprice?workprocess=${encodeURIComponent(selectedProcess)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        unitpriceInput.value = data.unitprice || ''; // 取得した単価を設定
+                    })
+                    .catch(error => {
+                        console.error('Error fetching unit price:', error);
+                        unitpriceInput.value = 'エラー'; // エラー時はエラー表示
+                    });
+            });
+
+            // フォーム送信時のボタン無効化
+            const form = document.querySelector('form');
+            const submitBtn = document.getElementById('submitButton');
+            form.addEventListener('submit', () => {
+                submitBtn.textContent = '送信中...';
+                submitBtn.disabled = true;
+            });
+        });
+    </script>
 </body>
 </html>
