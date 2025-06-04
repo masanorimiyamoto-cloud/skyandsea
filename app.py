@@ -13,7 +13,7 @@ from data_services import (
 # Blueprint をインポート
 from blueprints.api import api_bp  # 既存のAPI Blueprint
 from blueprints.ui import ui_bp    # 新しく作成したUI Blueprint
-
+from blueprints.auth import auth_bp # ★★★ auth_bp をインポート ★★★
 app = Flask(__name__)
 # 環境変数からSECRET_KEYを読み込む
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "a_very_strong_default_secret_key_for_dev_only_CHANGE_ME")
@@ -69,7 +69,7 @@ app.logger.info(f"FLASK_DEBUG: {os.environ.get('FLASK_DEBUG')}, app.debug: {app.
 # Blueprint を登録
 app.register_blueprint(api_bp)  # 既存のAPI Blueprint (通常 /api プレフィックス付き)
 app.register_blueprint(ui_bp)   # 新しいUI Blueprint (プレフィックスなし)
-
+app.register_blueprint(auth_bp) # ★★★ auth_bp を登録 ★★★
 
 if __name__ == "__main__":
     app.logger.info("アプリケーション起動: 初期データキャッシュを開始します...")

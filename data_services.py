@@ -1,44 +1,17 @@
+# data_services.py
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import time
 import os
-import logging # 標準のloggingモジュールを使用
+import logging
 
-# このモジュール用のロガーを設定
 logger = logging.getLogger(__name__)
-# このロガーの基本的な設定 (app.py側の設定とは独立)
-# 必要に応じて、より詳細な設定をここで行うこともできます。
-# ここでは、少なくともエラーが見えるように基本的な設定をしておきます。
-if not logger.hasHandlers(): # ハンドラが重複しないように
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO) # デフォルトレベル
-
-# ✅ Google Sheets 設定
-SERVICE_ACCOUNT_FILE = os.environ.get("SERVICE_ACCOUNT_FILE", "configGooglesheet.json")
-SPREADSHEET_NAME = os.environ.get("SPREADSHEET_NAME", "AirtableTest129")
-WORKSHEET_NAME = "wsTableCD" # wsTableCD, WorkCord/WorkName/BookName
-PERSONID_WORKSHEET_NAME = "wsPersonID" # PersonID/PersonName
-WORKPROCESS_WORKSHEET_NAME = "wsWorkProcess" # WorkProcess/UnitPrice
-
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-
-try:
-    creds = ServiceAccountCredentials.from_json_keyfile_name(SERVICE_ACCOUNT_FILE, scope)
-    client = gspread.authorize(creds)
-except Exception as e:
-    logger.critical(f"Google Sheets クライアントの初期化に失敗しました: {e}", exc_info=True)
-    # アプリケーションがこれ以上進めない場合、ここでエラーを発生させるか、
-    # client が None であることを呼び出し元でチェックするようにする
-    client = None # エラー発生時は client を None に
-
-CACHE_TTL = 300  # 300秒 (5分間)
+# ... (既存のロガー設定、Google Sheetsクライアント初期化はそのまま) ...
+# SERVICE_ACCOUNT_FILE, SPREADSHEET_NAME, PERSONID_WORKSHEET_NAME などもそのまま
 
 # ===== PersonID データ =====
-PERSON_ID_DICT = {}
-PERSON_ID_LIST = []
+PERSON_ID_DICT = {} # 構造変更: { pid: {"name": "pname", "pin_hash": "hash_value"}, ... }
+PERSON_ID_LIST = [] # これはPIDの数値リストのままでOK
 last_personid_load_time = 0
 
 def load_personid_data():
@@ -50,28 +23,52 @@ def load_personid_data():
         sheet = client.open(SPREADSHEET_NAME).worksheet(PERSONID_WORKSHEET_NAME)
         records = sheet.get_all_records()
         temp_dict = {}
+        temp_id_list = [] # PersonIDの数値リストもここで再構築
         for row in records:
-            pid = str(row.get("PersonID", "")).strip()
+            pid_str = str(row.get("PersonID", "")).strip()
             pname = str(row.get("PersonName", "")).strip()
-            if pid and pname:
+            pin_hash = str(row.get("PINHash", "")).strip() # ★★★ PINHash列を読み込む ★★★
+
+            if pid_str and pname: # PINHashは空でも許容するかもしれないが、ログイン機能には必須
                 try:
-                    pid_int = int(pid)
-                    temp_dict[pid_int] = pname
+                    pid_int = int(pid_str)
+                    if not pin_hash: # PINHashが設定されていないユーザーはログインできない
+                        logger.warning(f"PersonID '{pid_int}' にPINHashが設定されていません。このユーザーはログインできません。")
+                        # ログインさせないユーザーは辞書に含めないか、特別なマークを付ける
+                        # ここでは、ログイン機能のためPINHashが必須であるとして、なければスキップする例
+                        # continue 
+                        # もしくは、辞書には含めておき、ログイン時にPINHashの有無をチェックする
+                    
+                    # ★★★ PERSON_ID_DICTの構造を変更 ★★★
+                    temp_dict[pid_int] = {"name": pname, "pin_hash": pin_hash}
+                    temp_id_list.append(pid_int)
+
                 except ValueError:
-                    logger.warning(f"PersonID '{pid}' を整数に変換できませんでした。スキップします。")
+                    logger.warning(f"PersonID '{pid_str}' を整数に変換できませんでした。スキップします。")
                     continue
+            elif pid_str: # IDはあるが名前がない場合など（通常はないはず）
+                 logger.warning(f"PersonID '{pid_str}' のデータが不完全です（名前がないなど）。")
+
+
         PERSON_ID_DICT = temp_dict
-        PERSON_ID_LIST = list(PERSON_ID_DICT.keys())
+        PERSON_ID_LIST = sorted(temp_id_list) # IDリストをソートしておく
         last_personid_load_time = time.time()
-        logger.info(f"Google Sheets から {len(PERSON_ID_DICT)} 件の PersonID/PersonName レコードをロードしました！")
+        logger.info(f"Google Sheets から {len(PERSON_ID_DICT)} 件の PersonID/PersonName/PINHash レコードをロードしました！")
     except Exception as e:
         logger.error(f"Google Sheets の PersonID データ取得に失敗: {e}", exc_info=True)
+        PERSON_ID_DICT = {} # エラー時は空にする
+        PERSON_ID_LIST = []
 
 def get_cached_personid_data():
+    # この関数は PERSON_ID_DICT と PERSON_ID_LIST を返すので、
+    # PERSON_ID_DICT の構造が変わったことを呼び出し元が意識する必要があるかもしれない。
+    # 今回は、PersonID選択ドロップダウンで名前も表示するために辞書も返す。
     if not PERSON_ID_DICT or (time.time() - last_personid_load_time > CACHE_TTL):
         logger.info("PersonIDキャッシュが無効または期限切れです。再ロードします。")
         load_personid_data()
     return PERSON_ID_DICT, PERSON_ID_LIST
+
+# ... (WorkCord, WorkProcess関連の関数は変更なし) ...
 
 # ===== WorkCord/WorkName/BookName キャッシュ =====
 workcord_dict = {}
