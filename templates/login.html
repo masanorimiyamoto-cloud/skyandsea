@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ログイン - BookSKY_NET</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}"> {# 共通スタイルを適用 #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
         .login-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: left; }
@@ -40,21 +40,20 @@
             {% endif %}
         {% endwith %}
 
-        <form method="POST">
-            {# CSRFトークンはFlask-WTFフォームではないので不要（ただしセキュリティを考慮するなら追加を推奨） #}
-            {# もしFlask-WTFでログインフォームを作るなら {{ form.csrf_token }} が必要 #}
-            
+        <form method="POST" action="{{ url_for('auth_bp.login') }}"> {# アクションを明示 #}
             <input type="hidden" name="next_url" value="{{ next_url or '' }}">
 
             <label for="personid">PersonID:</label>
             <select id="personid" name="personid" required>
                 <option value="">PersonIDを選択してください</option>
-                {# personid_dict は {id: {"name": name, "pin_hash": hash}} の形式 #}
+                {# personid_dict は {pid: {"name": person_name, "pin_hash": hash_value}} の形式 #}
                 {% for pid, pdata in personid_dict.items() %}
+                    {# ★★★ 修正点: pdata.name を使って作業員名のみ表示 ★★★ #}
                     <option value="{{ pid }}">{{ pid }} - {{ pdata.name }}</option>
                 {% endfor %}
             </select>
 
+            {# ★★★ PINコード入力欄がここにあることを確認 ★★★ #}
             <label for="pin">PINコード:</label>
             <input type="password" id="pin" name="pin" required>
 
