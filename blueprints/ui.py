@@ -210,10 +210,16 @@ def records(year=None, month=None):
     new_record_id_from_session = session.pop('new_record_id', None)
     edited_record_id_from_session = session.pop('edited_record_id', None)
     personid_dict_data_for_template, _ = get_cached_personid_data()
-
+    personid_dict_all, _ = get_cached_personid_data()
+    current_person_name = "不明なユーザー"
+    if logged_in_pid is not None:
+        person_info = personid_dict_all.get(int(logged_in_pid))
+        if person_info and 'name' in person_info:
+            current_person_name = person_info['name']
     return render_template(
         "records.html",
         records=records_data,
+        current_person_name_for_display=current_person_name, # ★追加
         personid=person_id_to_use, # ログイン中のユーザーID
         personid_dict=personid_dict_data_for_template,
         display_month=display_month_str,
