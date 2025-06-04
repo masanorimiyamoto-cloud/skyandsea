@@ -1,142 +1,125 @@
 # blueprints/ui.py
+
 from flask import (
     Blueprint, render_template, request, flash, redirect, url_for, session, current_app
 )
 from datetime import datetime, date, timedelta
-import json # Pythonの辞書をJSON文字列としてテンプレートに渡す場合
+import json
 
 # サービスモジュールから必要な関数をインポート
-# data_services.py, airtable_service.py, forms.py はプロジェクトルートにあると仮定
 from data_services import get_cached_personid_data, get_cached_workprocess_data
-from airtable_service import (
-    create_airtable_record,
-    get_airtable_records_for_month,
-    delete_airtable_record,
-    get_airtable_record_details,
-    update_airtable_record_fields
-)
-# from forms import WorkLogForm # Flask-WTF を導入する際にコメントを外します
+from airtable_service import create_airtable_record
+# ★★★ auth_bp から login_required をインポート ★★★
+from .auth import login_required # auth.py が同じ blueprints フォルダにあると仮定、または from blueprints.auth import login_required
 
-# UI用 Blueprint を作成
-# template_folder と static_folder は、メインアプリケーションのフォルダを参照するように指定
+# UI用 Blueprint を作成 (変更なし)
 ui_bp = Blueprint(
     'ui_bp', __name__,
-    template_folder='../templates',  # プロジェクトルートの templates フォルダ
-    static_folder='../static'      # プロジェクトルートの static フォルダ
+    template_folder='../templates',
+    static_folder='../static'
 )
 
 # -------------------------------
 # Flask のルート (入力フォーム) - "/"
 @ui_bp.route("/", methods=["GET", "POST"])
+@login_required # ★★★ ログイン必須にする ★★★
 def index():
-    # --- データ読み込み (GET/POST共通) ---
-    # get_cached_workcord_data() # WorkCordデータはAPI経由なのでここでは不要
-    personid_dict_data, personid_list_data = get_cached_personid_data()
+    # --- ログインユーザー情報をセッションから取得 ---
+    logged_in_pid = session.get('logged_in_personid')
+    logged_in_pname = session.get('logged_in_personname', '不明なユーザー') # デフォルト名
+
+    # --- 他のフォーム用データ読み込み ---
     workprocess_list_data, unitprice_dict_data = get_cached_workprocess_data()
-    # error_wp は get_workprocess_data() の返り値の一部でしたが、
-    # get_cached_workprocess_data() はエラーを直接返さないため、ここでは扱いません。
-    # data_services 内のロガーでエラーは記録されます。
+    # PersonIDリストはログインユーザー固定なので、全リストは不要になる
+
+    # テンプレートに渡すコンテキストの初期化
+    template_context = {
+        "logged_in_personid": logged_in_pid,
+        "logged_in_personname": logged_in_pname,
+        "workprocess_list": workprocess_list_data,
+        "unitprice_dict_json": json.dumps(unitprice_dict_data),
+        "workday": session.get('workday', (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")),
+        "workcd": "",
+        "workoutput": "",
+        "workprocess_selected": "",
+        "selected_workname_option": "",
+        "bookname_hidden": "",
+        "unitprice": "" # 表示用単価 (JSで設定)
+    }
 
     if request.method == "POST":
-        selected_personid = request.form.get("personid", "").strip()
+        # POSTされた値で template_context を更新 (PersonIDはセッションからなので除く)
         workcd = request.form.get("workcd", "").strip()
         workoutput = request.form.get("workoutput", "").strip() or "0"
         workprocess = request.form.get("workprocess", "").strip()
         workday = request.form.get("workday", "").strip()
-        selected_option = request.form.get("workname", "").strip() # JSからはworknameのみが送られてくる想定
-        bookname_from_hidden = request.form.get("bookname", "").strip() # 元のコードでは 'bookname' で受け取っていた
+        selected_option = request.form.get("workname", "").strip()
+        bookname_from_hidden = request.form.get("bookname_hidden", "").strip()
+
+        template_context.update({
+            "workcd": workcd, "workoutput": workoutput, "workprocess_selected": workprocess,
+            "workday": workday, "selected_workname_option": selected_option,
+            "bookname_hidden": bookname_from_hidden
+        })
 
         workname, bookname = "", ""
         workoutput_val = 0
         error_occurred = False
 
-        if not selected_personid or not selected_personid.isdigit() or int(selected_personid) not in personid_list_data:
-            flash("⚠ 有効な PersonID を選択してください！", "error")
-            error_occurred = True
-        
+        # --- バリデーション (PersonIDのバリデーションは不要に) ---
         if workcd and not workcd.isdigit():
-            flash("⚠ WorkCD は数値で入力してください！", "error")
-            error_occurred = True
-            
+            flash("⚠ WorkCD は数値で入力してください！", "error"); error_occurred = True
         try:
             workoutput_val = int(workoutput)
         except ValueError:
-            flash("⚠ 数量は数値を入力してください！", "error")
-            error_occurred = True
-            workoutput_val = 0 # エラー時のフォールバック
-        
+            flash("⚠ 数量は数値を入力してください！", "error"); error_occurred = True; workoutput_val = 0
         if not workprocess or not workday:
-            flash("⚠ 行程と作業日は入力してください！", "error")
-            error_occurred = True
+            flash("⚠ 行程と作業日は入力してください！", "error"); error_occurred = True
         else:
-            try:
-                datetime.strptime(workday, "%Y-%m-%d")
-            except ValueError:
-                flash("⚠ 作業日はYYYY-MM-DDの形式で入力してください！", "error")
-                error_occurred = True
-
+            try: datetime.strptime(workday, "%Y-%m-%d")
+            except ValueError: flash("⚠ 作業日はYYYY-MM-DDの形式で入力してください！", "error"); error_occurred = True
         if not selected_option and workcd:  
-            flash("⚠ WorkCDを入力した場合は品名も選択してください！", "error")
-            error_occurred = True
+            flash("⚠ WorkCDを入力した場合は品名も選択してください！", "error"); error_occurred = True
         elif selected_option:
-            # JavaScript側で worknameSelect の option の value には workname のみが設定される想定
             workname = selected_option
-            # bookname は hidden フィールドから取得
             bookname = bookname_from_hidden
         
         if error_occurred:
-            current_app.logger.warning(f"UI index POST - 入力エラー: PersonID={selected_personid}, WorkCD={workcd}")
-            # エラー時も入力値を保持してフォームを再表示
-            # この部分は Flask-WTF 導入時に form オブジェクトを使う形に変わります
-            return render_template("index.html",
-                                   personid_list=personid_list_data,
-                                   personid_dict=personid_dict_data,
-                                   selected_personid=selected_personid,
-                                   workprocess_list=workprocess_list_data,
-                                   unitprice_dict_json=json.dumps(unitprice_dict_data), # JS用
-                                   workday=workday,
-                                   workcd=workcd,
-                                   workoutput=workoutput, # 文字列のまま渡す
-                                   workprocess_selected=workprocess, # workprocessだと予約語と衝突の可能性
-                                   selected_workname_option=selected_option, # 元の値を保持
-                                   bookname_hidden=bookname # hiddenフィールドの値も保持
-                                   )
+            current_app.logger.warning(f"UI index POST - 入力エラー: LoggedInPersonID={logged_in_pid}, WorkCD={workcd}")
+            return render_template("index.html", **template_context)
 
-        unitprice = unitprice_dict_data.get(workprocess, 0.0) # floatで取得
+        # バリデーション成功時
+        unitprice = unitprice_dict_data.get(workprocess, 0.0)
 
-        current_app.logger.info(f"UI index POST - Airtableへの送信準備: PersonID={selected_personid}, WorkCD={workcd or 'N/A'}")
+        current_app.logger.info(f"UI index POST - Airtable送信準備: LoggedInPersonID={logged_in_pid}, WorkCD={workcd or 'N/A'}")
+        # ★★★ create_airtable_record にはセッションの logged_in_pid を使用 ★★★
         status_code, response_text, new_record_id = create_airtable_record(
-            selected_personid, workcd, workname, bookname, workoutput_val, workprocess, unitprice, workday
+            str(logged_in_pid), workcd, workname, bookname, workoutput_val, workprocess, unitprice, workday
         )
 
         flash(response_text, "success" if status_code == 200 and new_record_id else "error")
-        session['selected_personid'] = selected_personid
+        # session['selected_personid'] は logged_in_pid と同義になるので、
+        # 他の箇所で 'selected_personid' を参照している場合は注意が必要。
+        # logged_in_pid を使うように統一するのが望ましい。
+        session['selected_personid'] = str(logged_in_pid) 
         session['workday'] = workday
 
         if status_code == 200 and new_record_id:
             session['new_record_id'] = new_record_id
             try:
                 workday_dt = datetime.strptime(workday, "%Y-%m-%d")
-                # Blueprint内のルートを参照する場合は先頭にドット '.' をつける
                 return redirect(url_for(".records", year=workday_dt.year, month=workday_dt.month))
             except ValueError: 
-                current_app.logger.warning(f"UI index POST - workdayのパースに失敗 ({workday})。recordsのデフォルト表示へ。")
                 return redirect(url_for(".records")) 
         else:
-            # 送信失敗時も入力値を保持してindex.htmlを再表示
-            return render_template("index.html",
-                                   personid_list=personid_list_data,
-                                   personid_dict=personid_dict_data,
-                                   selected_personid=selected_personid,
-                                   workprocess_list=workprocess_list_data,
-                                   unitprice_dict_json=json.dumps(unitprice_dict_data),
-                                   workday=workday,
-                                   workcd=workcd,
-                                   workoutput=workoutput,
-                                   workprocess_selected=workprocess,
-                                   selected_workname_option=selected_option,
-                                   bookname_hidden=bookname
-                                   )
+            return render_template("index.html", **template_context)
+
+    # GET リクエスト時
+    # template_context には既にログインユーザー情報と作業日のデフォルトが設定されている
+    return render_template("index.html", **template_context)
+
+# ... (records, edit_record, delete_record ルートも @login_required を適用し、
+#    selected_personid の代わりに session['logged_in_personid'] を使用するように修正が必要) ...
 
     # GET リクエスト
     selected_personid_session = session.get('selected_personid', "")
