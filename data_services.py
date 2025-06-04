@@ -1,4 +1,5 @@
 # data_services.py
+
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import time
@@ -6,8 +7,44 @@ import os
 import logging
 
 logger = logging.getLogger(__name__)
-# ... (既存のロガー設定、Google Sheetsクライアント初期化はそのまま) ...
-# SERVICE_ACCOUNT_FILE, SPREADSHEET_NAME, PERSONID_WORKSHEET_NAME などもそのまま
+if not logger.hasHandlers():
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+# ✅ Google Sheets 設定 (These should ideally come from environment variables or a config file too)
+SERVICE_ACCOUNT_FILE = os.environ.get("SERVICE_ACCOUNT_FILE", "configGooglesheet.json")
+SPREADSHEET_NAME = os.environ.get("SPREADSHEET_NAME", "AirtableTest129")
+WORKSHEET_NAME = "wsTableCD" 
+PERSONID_WORKSHEET_NAME = "wsPersonID"
+WORKPROCESS_WORKSHEET_NAME = "wsWorkProcess"
+
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+
+# ★★★ Google Sheets API Client Initialization - ADD THIS BLOCK ★★★
+client = None # Initialize client to None
+try:
+    if os.path.exists(SERVICE_ACCOUNT_FILE):
+        creds = ServiceAccountCredentials.from_json_keyfile_name(SERVICE_ACCOUNT_FILE, scope)
+        client = gspread.authorize(creds)
+        logger.info("Google Sheets client initialized successfully.")
+    else:
+        logger.critical(f"サービスアカウントファイルが見つかりません: {SERVICE_ACCOUNT_FILE}")
+        # client remains None, functions using it will log errors and return early
+except Exception as e:
+    logger.critical(f"Google Sheets クライアントの初期化に失敗しました: {e}", exc_info=True)
+    # client remains None
+# ★★★ END OF CLIENT INITIALIZATION BLOCK ★★★
+
+
+CACHE_TTL = 300  # 300秒 (5分間)
+
+# ===== PersonID データ =====
+PERSON_ID_DICT = {}
+# ... (rest of your data_services.py code, like load_personid_data, etc.) ...
+# The load_* functions will now correctly find the 'client' variable defined above.
 
 # ===== PersonID データ =====
 PERSON_ID_DICT = {} # 構造変更: { pid: {"name": "pname", "pin_hash": "hash_value"}, ... }
