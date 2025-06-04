@@ -1,13 +1,22 @@
 # blueprints/ui.py
+
 from flask import (
     Blueprint, render_template, request, flash, redirect, url_for, session, current_app
 )
 from datetime import datetime, date, timedelta
-import json # json.dumps は使わなくなるが、jsonモジュール自体は残してもよい
+import json
 
 # サービスモジュールから必要な関数をインポート
-from data_services import get_cached_personid_data, get_cached_workprocess_data
-from airtable_service import create_airtable_record
+from data_services import get_cached_personid_data, get_cached_workprocess_data # forms.pyは使わないので削除
+
+# ★★★ airtable_serviceからのインポートを再確認 ★★★
+from airtable_service import (
+    create_airtable_record,
+    get_airtable_records_for_month,  # ← この行が重要です！
+    delete_airtable_record,
+    get_airtable_record_details,
+    update_airtable_record_fields
+)
 from .auth import login_required # auth.py が同じ blueprints フォルダにあると仮定
 
 # UI用 Blueprint を作成 (変更なし)
