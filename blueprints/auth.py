@@ -82,6 +82,11 @@ def login():
         
     personid_dict_for_template, _ = get_cached_personid_data()
     next_url_from_query = request.args.get('next', '') # リダイレクト元から渡されたnext URLを取得
+
+    # blueprints/auth.py の login 関数のGETリクエスト処理の最後
+    # return render_template('login.html', ...) の直前に追加
+    current_app.logger.debug(f"login.htmlへ渡す personid_dict: {personid_dict_for_template}") # personid_dict_for_template は実際に渡す変数名
+    
     return render_template('login.html', personid_dict=personid_dict_for_template, next_url=next_url_from_query)
 
 
