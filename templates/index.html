@@ -69,22 +69,21 @@
         .user-info { 
             margin-bottom: 15px; 
             padding: 10px; 
-            background-color: #f0f0f0; /* 少し薄い背景色 */
-            border: 1px solid #ddd; /* 枠線 */
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
             border-radius: 5px; 
             text-align: center; 
-            font-size: 0.9em; /* 少し小さめのフォント */
+            font-size: 0.9em;
         }
-        .user-info strong { color: #0056b3; } /* 強調表示の色 */
-        .user-info a { margin-left: 15px; color: #dc3545; text-decoration: none; } /* ログアウトリンクの色 */
+        .user-info strong { color: #0056b3; }
+        .user-info a { margin-left: 15px; color: #dc3545; text-decoration: none; }
         .user-info a:hover { text-decoration: underline; }
 
-        #worknameSelect { /* JavaScriptで操作する品名選択 */
-            display: block !important; /* 初期非表示でもJSでblockにするので!important */
+        #worknameSelect {
+            display: block !important; 
             max-height: 200px;
             overflow-y: auto;
-            border: 1px solid #ccc; /* 通常の入力欄と合わせる */
-            /* border: 2px solid #007bff; */ /* 元のスタイル */
+            border: 1px solid #ccc; 
             transition: border-color 0.3s ease;
         }
         #worknameSelect:focus {
@@ -99,12 +98,12 @@
     <div class="container">
         <div class="header">
             <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="BookSKY Logo" class="logo">
-            <h2>BookSKY_NET (ログイン版2025.6.4)</h2>
+            <h2>BookSKY_NET (ログイン版)</h2>
         </div>
 
         {% if session.logged_in_personid %}
         <div class="user-info">
-            ログイン中: <strong>{{ session.logged_in_personname }} (ID: {{ session.logged_in_personid }})</strong>
+            ログイン中: <strong>{{ logged_in_personname }} (ID: {{ logged_in_personid }})</strong>
             <a href="{{ url_for('auth_bp.logout') }}">ログアウト</a>
         </div>
         {% endif %}
@@ -117,21 +116,18 @@
                     {% endfor %}
                 </div>
             {% else %}
-                 <div id="flash-message" style="min-height: 2em;"> {# 空でも高さを確保 #}
+                 <div id="flash-message" style="min-height: 2em;"> 
                     <p style="color: gray;">新しいデータを入力してください</p>
                 </div>
             {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('ui_bp.index') }}"> {# アクションを明示 #}
-            {# CSRFトークンはFlask-WTF導入時に再度追加します #}
-
+        <form method="POST" action="{{ url_for('ui_bp.index') }}">
             <div>
                 <label for="person_display">📌 PersonID (ログイン中):</label>
                 <input type="text" id="person_display" 
                        value="{{ logged_in_personid }} - {{ logged_in_personname }}" 
                        readonly class="form-control">
-                {# サーバーはセッションのIDを使用するため、フォームからのpersonid送信は不要 #}
             </div>
 
             <label for="workcd">🔍 品番コード:</label>
@@ -167,7 +163,8 @@
     <button id="viewRecordsButton" style="margin-top:15px; font-size:18px;">入力一覧確認</button>
 
     <script>
-        const unitpriceDict = JSON.parse('{{ unitprice_dict_json|tojson|safe if unitprice_dict_json else "{}" }}');
+        // Pythonから渡された単価辞書データをJavaScriptオブジェクトとして直接受け取る
+        const unitpriceDict = {{ unitprice_data_for_js|tojson|safe if unitprice_data_for_js else {} }};
 
         function debounce(fn, wait) {
             let timer = null;
@@ -185,10 +182,9 @@
             const unitpriceInput  = document.getElementById('unitprice_display');
             const workdayInput    = document.getElementById('workday');
             const viewBtn         = document.getElementById('viewRecordsButton');
-            // const personidSelect  = document.getElementById('personid'); // これはもう存在しない
 
             // ページロード時にworkprocessの初期値があれば単価を設定
-            if (workprocessSel && workprocessSel.value && unitpriceDict[workprocessSel.value] !== undefined) {
+            if (workprocessSel && workprocessSel.value && unitpriceDict && unitpriceDict[workprocessSel.value] !== undefined) {
                  if(unitpriceInput) unitpriceInput.value = unitpriceDict[workprocessSel.value];
             }
             
@@ -199,17 +195,14 @@
                 if (!workcdInput.value || workcdInput.value.length < 3 ) { 
                     worknameSelect.style.display = 'none'; 
                     populateWorknameSelectWithMessage('品番コードを3桁以上入力...');
-                } else { // 初期値が3文字以上ある場合（エラーで戻ってきたなど）
+                } else { 
                     populateWorknameSelectWithMessage('品番コード再入力または品名を選択...');
                     worknameSelect.style.display = 'block';
-                    // 必要であれば、ここで fetchAndFill() を一度呼び出して候補を再取得することも検討
-                    // fetchAndFill(); // ただしデバウンスなしで即時実行したい場合など工夫が必要
                 }
-            } else if (worknameSelect) { // workcdInput がなくても worknameSelect は初期化
+            } else if (worknameSelect) { 
                  worknameSelect.style.display = 'none'; 
                  populateWorknameSelectWithMessage('品番コードを3桁以上入力...');
             }
-
 
             function populateWorknameSelectWithMessage(message, isError = false) {
                 if (!worknameSelect) return;
@@ -256,7 +249,6 @@
                     const selectedOption = worknameSelect.options[worknameSelect.selectedIndex];
                     if (selectedOption && selectedOption.value) { 
                         if(booknameInput) booknameInput.value = selectedOption.dataset.bookname || ""; 
-                        // workcdInput.value = selectedOption.dataset.code || workcdInput.value; // 品番コードはユーザー入力値を尊重
                     } else {
                         if(booknameInput) booknameInput.value = ""; 
                     }
@@ -273,8 +265,7 @@
                     if(booknameInput) booknameInput.value = '';   
                     isWorknameSelectShowingMessage = true;
                     populateWorknameSelectWithMessage('品番コードを3桁以上入力...'); 
-                    // name="workname" の select の値をクリア
-                    worknameSelect.value = ""; // これで選択肢がメッセージのみなら実質クリア
+                    worknameSelect.value = "";
                     return;
                 }
 
@@ -303,8 +294,8 @@
                                 opt.dataset.bookname = item.bookname; 
                                 opt.selected = true; 
                                 worknameSelect.appendChild(opt);
-                                worknameSelect.value = item.workname; // 明示的に値を設定
-                                worknameSelect.dispatchEvent(new Event('change')); // changeイベントを発火
+                                worknameSelect.value = item.workname;
+                                worknameSelect.dispatchEvent(new Event('change')); 
                                 isWorknameSelectShowingMessage = false; 
                             } else if (suggestionsCache.length > 1) {
                                 populateWorknameSelectWithMessage(`${suggestionsCache.length}件の候補。クリック/タップして選択`);
@@ -332,17 +323,13 @@
             if (viewBtn && workdayInput) {
                 viewBtn.addEventListener('click', () => {
                     const dateStr = workdayInput.value;
-                    // PersonIDはサーバーサイドのセッションから使われるので、URLに含める必要は基本的にない
-                    // ui_bp.records が personid URLパラメータを任意で受け付けるなら渡してもよいが、
-                    // ここではセッション利用を前提とし、URLパラメータからは外す
-                    if (!dateStr) {
-                        window.location.href = "{{ url_for('ui_bp.records') }}"; 
-                        return;
+                    let recordsUrl = "{{ url_for('ui_bp.records') }}"; // 基本のURL
+                    if (dateStr) {
+                        const [year, month] = dateStr.split('-');
+                        // URLを安全に構築するために、Python側でURLを生成するのが理想だが、
+                        // JSでやる場合は、パスを直接組み立てるか、ダミー引数で生成したURLを置換する
+                        recordsUrl = `{{ url_for('ui_bp.records', year=1234, month=56) }}`.replace('1234', year).replace('56', month);
                     }
-                    const [year, month] = dateStr.split('-');
-                    // url_forの引数に0を渡して一時的なURLを生成し、実際の年月で置換 (より安全な方法はPython側でのURL生成)
-                    let recordsUrl = "{{ url_for('ui_bp.records', year=1234, month=56) }}"; // ダミーの年月
-                    recordsUrl = recordsUrl.replace('1234', year).replace('56', month);
                     window.location.href = recordsUrl;
                 });
             }
@@ -351,7 +338,7 @@
                 const lastDay = localStorage.getItem('lastWorkDay');
                 if (lastDay) {
                     workdayInput.value = lastDay;
-                } else if (!workdayInput.value) { // Python側から値が渡されていない場合のみJSで今日の日付を設定
+                } else if (!workdayInput.value) { 
                     const today = new Date();
                     const yyyy = today.getFullYear();
                     const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -386,14 +373,13 @@
                             .catch(error => { unitpriceInput.value = '通信エラー'; });
                     }
                 });
-                // 初期ロード時に workprocessSel に値があれば change イベントを発火させて単価を表示
                 if (workprocessSel.value) {
                     workprocessSel.dispatchEvent(new Event('change'));
                 }
             }
 
             const formElement = document.querySelector('form');
-            const submitButton = document.getElementById('submitButton'); // 送信ボタンのIDが submitButton であると仮定
+            const submitButton = document.getElementById('submitButton'); 
             if (formElement && submitButton) {
                 formElement.addEventListener('submit', (event) => { 
                     const workcdVal = workcdInput ? workcdInput.value.trim() : "";
