@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>データ入力 - BookSKY_NET (ログイン版2026_2)</title>
+    <title>BookSKY_NET (2026.627)</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <style>
         body {
@@ -98,7 +98,7 @@
     <div class="container">
         <div class="header">
             <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="BookSKY Logo" class="logo">
-            <h2>BookSKY_NET (ログイン版2026.1.23)</h2>
+            <h2>BookSKY_NET (2026.627)</h2>
         </div>
 
         {% if session.logged_in_personid %}
@@ -158,6 +158,7 @@
             
             <button type="submit" id="submitButton" class="btn btn-primary">送信</button>
         </form>
+        <div id="unitprice-data" data-json='{{ unitprice_data_for_js | tojson }}' style="display:none;"></div>
     </div>
 
     <button id="viewRecordsButton" style="margin-top:15px; font-size:18px;">入力一覧確認</button>
