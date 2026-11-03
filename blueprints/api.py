@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request, current_app # current_app をイ�
 # `your_flask_app` は実際のプロジェクトルートフォルダ名に置き換えてください
 # もし `blueprints` フォルダが `data_services.py` と同じ階層の `your_flask_app` 内にある場合
 from data_services import get_cached_workcord_data, get_cached_workprocess_data
+from work_names import normalize_workname
 
 api_bp = Blueprint('api_bp', __name__, url_prefix='/api')
 
@@ -29,7 +30,7 @@ def get_worknames():
             for item in data[workcd]:
                 results.append({
                     "code": workcd,
-                    "workname": item["workname"],
+                    "workname": normalize_workname(item["workname"]),
                     "bookname": item["bookname"]
                 })
         
@@ -39,7 +40,7 @@ def get_worknames():
                 for item in data[key]:
                     results.append({
                         "code": key,
-                        "workname": item["workname"],
+                        "workname": normalize_workname(item["workname"]),
                         "bookname": item["bookname"]
                     })
     
