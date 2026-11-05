@@ -52,7 +52,7 @@ class WorkNameFlowTests(unittest.TestCase):
         ])
         self.assertEqual(master["123"][0]["workname"], "商品A #管理メモ")
 
-    def test_form_sends_clean_name_and_rejects_an_empty_name_after_hash(self):
+    def test_form_sends_clean_name_and_keeps_names_starting_with_hash(self):
         form = {
             "workcd": "1234", "workname": "商品A #管理メモ",
             "bookname_hidden": "書名A", "workoutput": "5",
@@ -66,10 +66,17 @@ class WorkNameFlowTests(unittest.TestCase):
             create.assert_called_once_with("99", "1234", "商品A", "書名A", 5, "工程A", 2.5, "2026-11-03")
 
             create.reset_mock()
-            form["workname"] = "#管理メモのみ"
+            form["workname"] = " #A12 商品C#追記 "
             response = self.client.post("/", data=form)
-            self.assertEqual(response.status_code, 200)
-            create.assert_not_called()
+            self.assertEqual(response.status_code, 302)
+            create.assert_called_once_with("99", "1234", "#A12 商品C#追記", "書名A", 5, "工程A", 2.5, "2026-11-03")
+
+    def test_names_starting_with_hash_are_shown_in_full(self):
+        from work_names import normalize_workname
+        self.assertEqual(normalize_workname("#A12 商品"), "#A12 商品")
+        self.assertEqual(normalize_workname("  #A12#メモ "), "#A12#メモ")
+        self.assertEqual(normalize_workname("商品A #管理メモ"), "商品A")
+        self.assertEqual(normalize_workname(None), "")
 
     def test_create_saves_clean_name_in_airtable_and_month_cache(self):
         key = airtable_cache.month_key("99", 2026, 11)
